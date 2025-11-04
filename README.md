@@ -7,6 +7,8 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
+**Aktueller Status:** 14 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung
+
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
 ## 🚀 Features
@@ -275,10 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-Dieses Skript implementiert ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
+**Status:** 14 von 400+ Checks implementiert (~3%)
+
+Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>Implementierte Checks anzeigen</summary>
+<summary>✅ Implementierte Checks (14) - Klicken zum Anzeigen</summary>
 
 - **6.2** - Configure System Accounting (auditd)
   - 6.2.1.1 - Ensure auditd is installed
@@ -305,6 +309,8 @@ Dieses Skript implementiert ausgewählte Checks aus folgenden CIS Benchmark-Absc
   - 3.2.2 - Ensure ICMP redirects are not accepted
 
 </details>
+
+> 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 
 ## 📊 Severity Levels
 
@@ -349,6 +355,7 @@ Wenn dir dieses Projekt hilft, kannst du mir gerne einen Kaffee spendieren!
 
 - [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks/)
 - [Debian Security](https://www.debian.org/security/)
+- [ROADMAP.md](ROADMAP.md) - 🗺️ **Implementation Roadmap** (400+ Checks geplant)
 - [QUICK_START.md](QUICK_START.md) - Schnellstart-Anleitung
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution Guidelines
 
