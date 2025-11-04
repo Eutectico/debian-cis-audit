@@ -1,0 +1,6 @@
+# Debian CIS Audit - Production Dependencies
+#
+# This project uses only Python standard library modules.
+# No external dependencies are required for basic functionality.
+#
+# Python version requirement: >= 3.6

@@ -1,0 +1,185 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pylint flake8 black
+
+    - name: Run Black (code formatting check)
+      run: black --check --diff *.py
+      continue-on-error: true
+
+    - name: Run Flake8 (style check)
+      run: flake8 *.py --max-line-length=100 --extend-ignore=E203,W503
+      continue-on-error: true
+
+    - name: Run Pylint (code analysis)
+      run: pylint *.py --max-line-length=100
+      continue-on-error: true
+
+  test:
+    name: Test on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Verify Python imports
+      run: |
+        python3 -c "import debian_cis_audit"
+        python3 -c "import test_auditd_check"
+        python3 -c "import monitoring_integration_example"
+
+    - name: Test auditd check (non-root)
+      run: python3 test_auditd_check.py
+      continue-on-error: true
+
+    - name: Test script help
+      run: python3 debian_cis_audit.py --help
+
+    - name: Test monitoring integration help
+      run: python3 monitoring_integration_example.py --help
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install bandit (security linter)
+      run: pip install bandit
+
+    - name: Run Bandit security scan
+      run: bandit -r *.py -f json -o bandit-report.json
+      continue-on-error: true
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: bandit-report
+        path: bandit-report.json
+
+  validate-cis-references:
+    name: Validate CIS References
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check for CIS Benchmark PDFs (should not be in repo)
+      run: |
+        if find . -name "*.pdf" -type f | grep -v ".git" | grep -q .; then
+          echo "ERROR: PDF files found in repository!"
+          echo "CIS Benchmark PDFs should NOT be included due to copyright."
+          exit 1
+        else
+          echo "OK: No PDF files found in repository"
+        fi
+
+    - name: Validate CIS check ID format
+      run: |
+        python3 << 'EOF'
+        import re
+        import sys
+
+        # Read the main audit script
+        with open('debian_cis_audit.py', 'r') as f:
+            content = f.read()
+
+        # Find all check_id values
+        check_ids = re.findall(r'check_id=["\']([^"\']+)["\']', content)
+
+        # Validate format (X.Y.Z or X.Y.Z.W)
+        invalid_ids = []
+        for check_id in check_ids:
+            if not re.match(r'^\d+\.\d+(\.\d+)*$', check_id):
+                invalid_ids.append(check_id)
+
+        if invalid_ids:
+            print(f"ERROR: Invalid CIS check ID format found:")
+            for check_id in invalid_ids:
+                print(f"  - {check_id}")
+            sys.exit(1)
+        else:
+            print(f"OK: All {len(check_ids)} check IDs are valid")
+        EOF
+
+  documentation:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Check README exists
+      run: test -f README.md
+
+    - name: Check LICENSE exists
+      run: test -f LICENSE
+
+    - name: Check CONTRIBUTING.md exists
+      run: test -f CONTRIBUTING.md
+
+    - name: Check CODE_OF_CONDUCT.md exists
+      run: test -f CODE_OF_CONDUCT.md
+
+    - name: Validate Markdown files
+      uses: actionshub/markdownlint@main
+      continue-on-error: true
+
+  build-test:
+    name: Test Installation
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install setuptools
+      run: pip install setuptools wheel
+
+    - name: Build package
+      run: python setup.py sdist bdist_wheel
+
+    - name: Test installation from wheel
+      run: |
+        pip install dist/*.whl
+        debian-cis-audit --help

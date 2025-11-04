@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2025 Debian CIS Audit Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+IMPORTANT NOTICE REGARDING CIS BENCHMARKS:
+
+This software is based on the CIS Debian Linux 12 Benchmark v1.1.0, which is
+copyrighted by the Center for Internet Security, Inc. (CIS).
+
+The CIS Benchmarks are proprietary content owned by CIS. This software
+implements audit checks based on publicly available CIS Benchmark recommendations,
+but does NOT include or redistribute the CIS Benchmark documentation itself.
+
+Users of this software should:
+1. Obtain the official CIS Benchmark from https://www.cisecurity.org/
+2. Review and comply with CIS terms of use
+3. NOT host CIS Benchmark PDFs on third-party sites
+
+For more information about CIS Benchmarks:
+https://www.cisecurity.org/cis-benchmarks/
+
+For questions about CIS copyright and usage:
+CISLegal@cisecurity.org
