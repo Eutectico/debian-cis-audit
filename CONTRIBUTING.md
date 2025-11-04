@@ -86,7 +86,7 @@ We welcome contributions that add more CIS Benchmark checks! Here's how:
 ### Setting Up Your Development Environment
 
 ```bash
-# Clone your fork (replace YOUR-USERNAME with your GitHub username)
+# Clone your fork
 git clone https://github.com/YOUR-USERNAME/debian-cis-audit.git
 cd debian-cis-audit
 

@@ -73,8 +73,9 @@ setup(
 
     # Project URLs
     project_urls={
-        'Bug Reports': 'https://github.com/YOUR-USERNAME/debian-cis-audit/issues',
-        'Source': 'https://github.com/YOUR-USERNAME/debian-cis-audit',
-        'Documentation': 'https://github.com/YOUR-USERNAME/debian-cis-audit#readme',
+        'Bug Reports': 'https://github.com/Eutectico/debian-cis-audit/issues',
+        'Source': 'https://github.com/Eutectico/debian-cis-audit',
+        'Documentation': 'https://github.com/Eutectico/debian-cis-audit#readme',
+        'Funding': 'https://www.buymeacoffee.com/Eutectico',
     },
 )

@@ -331,13 +331,19 @@ MIT License - Siehe [LICENSE](LICENSE) für Details
 
 Erstellt basierend auf CIS Debian Linux 12 Benchmark v1.1.0 (09-26-2024)
 
-Siehe [Contributors](https://github.com/YOUR-USERNAME/debian-cis-audit/graphs/contributors) für alle Mitwirkenden.
+Siehe [Contributors](https://github.com/Eutectico/debian-cis-audit/graphs/contributors) für alle Mitwirkenden.
 
 ## 🐛 Support
 
-- **Bug Reports:** [GitHub Issues](https://github.com/YOUR-USERNAME/debian-cis-audit/issues)
-- **Feature Requests:** [GitHub Issues](https://github.com/YOUR-USERNAME/debian-cis-audit/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/YOUR-USERNAME/debian-cis-audit/discussions)
+- **Bug Reports:** [GitHub Issues](https://github.com/Eutectico/debian-cis-audit/issues)
+- **Feature Requests:** [GitHub Issues](https://github.com/Eutectico/debian-cis-audit/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/Eutectico/debian-cis-audit/discussions)
+
+## ☕ Support This Project
+
+Wenn dir dieses Projekt hilft, kannst du mir gerne einen Kaffee spendieren!
+
+<a href="https://www.buymeacoffee.com/Eutectico" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 ## 📚 Ressourcen
 
