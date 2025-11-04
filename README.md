@@ -1,6 +1,6 @@
 # Debian CIS Benchmark Audit Script
 
-[![CI](https://github.com/YOUR-USERNAME/debian-cis-audit/workflows/CI/badge.svg)](https://github.com/YOUR-USERNAME/debian-cis-audit/actions)
+[![CI](https://github.com/Eutectico/debian-cis-audit/workflows/CI/badge.svg)](https://github.com/Eutectico/debian-cis-audit/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/)
 [![CIS Benchmark](https://img.shields.io/badge/CIS%20Benchmark-Debian%2012%20v1.1.0-green.svg)](https://www.cisecurity.org/benchmark/debian_linux)
@@ -71,7 +71,7 @@ Das Skript verwendet nur Python-Standardbibliotheken. Keine zusätzlichen Pakete
 
 ```bash
 # Repository klonen
-git clone https://github.com/YOUR-USERNAME/debian-cis-audit.git
+git clone https://github.com/Eutectico/debian-cis-audit.git
 cd debian-cis-audit
 
 # Skript ausführbar machen
