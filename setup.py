@@ -18,7 +18,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Debian CIS Audit Contributors',
     author_email='',
-    url='https://github.com/YOUR-USERNAME/debian-cis-audit',
+    url='https://github.com/Eutectico/debian-cis-audit',
     license='MIT',
 
     # Package configuration
