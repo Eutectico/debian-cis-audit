@@ -1513,6 +1513,247 @@ class SSHAuditor(BaseAuditor):
         self.check_sshd_usepam()
 
 
+class FilesystemPartitionAuditor(BaseAuditor):
+    """Auditor for filesystem partition configurations"""
+
+    def __init__(self, reporter: AuditReporter):
+        super().__init__(reporter)
+        self.mounts = self._parse_mounts()
+
+    def _parse_mounts(self) -> Dict[str, Dict[str, str]]:
+        """Parse /proc/mounts to get mounted filesystems and their options"""
+        mounts = {}
+
+        content = self.read_file('/proc/mounts')
+        if not content:
+            return mounts
+
+        for line in content.split('\n'):
+            if not line.strip():
+                continue
+
+            parts = line.split()
+            if len(parts) >= 4:
+                device = parts[0]
+                mount_point = parts[1]
+                fs_type = parts[2]
+                options = parts[3].split(',')
+
+                mounts[mount_point] = {
+                    'device': device,
+                    'type': fs_type,
+                    'options': options
+                }
+
+        return mounts
+
+    def _check_partition_exists(self, mount_point: str, check_id: str, title: str):
+        """Generic method to check if a partition exists"""
+        if mount_point in self.mounts:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"{mount_point} is mounted as a separate partition"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"{mount_point} is not a separate partition",
+                remediation=f"Create a separate partition for {mount_point} and add it to /etc/fstab"
+            ))
+
+    def _check_mount_option(self, mount_point: str, option: str, check_id: str, title: str, severity: Severity = Severity.HIGH):
+        """Generic method to check if a mount option is set"""
+        if mount_point not in self.mounts:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.SKIP,
+                severity=severity,
+                message=f"{mount_point} is not a separate partition - check skipped"
+            ))
+            return
+
+        options = self.mounts[mount_point]['options']
+
+        if option in options:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=severity,
+                message=f"{option} option is set on {mount_point}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=severity,
+                message=f"{option} option is not set on {mount_point}",
+                details=f"Current options: {', '.join(options)}",
+                remediation=f"Edit /etc/fstab and add '{option}' to the mount options for {mount_point}, then remount"
+            ))
+
+    # /tmp partition checks
+    def check_tmp_partition(self):
+        """Check if /tmp is a separate partition"""
+        self._check_partition_exists('/tmp', '1.1.2.1.1', 'Ensure /tmp is a separate partition')
+
+    def check_tmp_nodev(self):
+        """Check if nodev option is set on /tmp"""
+        self._check_mount_option('/tmp', 'nodev', '1.1.2.1.2', 'Ensure nodev option set on /tmp partition')
+
+    def check_tmp_nosuid(self):
+        """Check if nosuid option is set on /tmp"""
+        self._check_mount_option('/tmp', 'nosuid', '1.1.2.1.3', 'Ensure nosuid option set on /tmp partition')
+
+    def check_tmp_noexec(self):
+        """Check if noexec option is set on /tmp"""
+        self._check_mount_option('/tmp', 'noexec', '1.1.2.1.4', 'Ensure noexec option set on /tmp partition')
+
+    # /dev/shm partition checks
+    def check_devshm_partition(self):
+        """Check if /dev/shm is a separate partition"""
+        self._check_partition_exists('/dev/shm', '1.1.2.2.1', 'Ensure /dev/shm is a separate partition')
+
+    def check_devshm_nodev(self):
+        """Check if nodev option is set on /dev/shm"""
+        self._check_mount_option('/dev/shm', 'nodev', '1.1.2.2.2', 'Ensure nodev option set on /dev/shm partition')
+
+    def check_devshm_nosuid(self):
+        """Check if nosuid option is set on /dev/shm"""
+        self._check_mount_option('/dev/shm', 'nosuid', '1.1.2.2.3', 'Ensure nosuid option set on /dev/shm partition')
+
+    def check_devshm_noexec(self):
+        """Check if noexec option is set on /dev/shm"""
+        self._check_mount_option('/dev/shm', 'noexec', '1.1.2.2.4', 'Ensure noexec option set on /dev/shm partition')
+
+    # /home partition checks
+    def check_home_partition(self):
+        """Check if /home is a separate partition"""
+        self._check_partition_exists('/home', '1.1.2.3.1', 'Ensure separate partition exists for /home')
+
+    def check_home_nodev(self):
+        """Check if nodev option is set on /home"""
+        self._check_mount_option('/home', 'nodev', '1.1.2.3.2', 'Ensure nodev option set on /home partition')
+
+    def check_home_nosuid(self):
+        """Check if nosuid option is set on /home"""
+        self._check_mount_option('/home', 'nosuid', '1.1.2.3.3', 'Ensure nosuid option set on /home partition')
+
+    # /var partition checks
+    def check_var_partition(self):
+        """Check if /var is a separate partition"""
+        self._check_partition_exists('/var', '1.1.2.4.1', 'Ensure separate partition exists for /var')
+
+    def check_var_nodev(self):
+        """Check if nodev option is set on /var"""
+        self._check_mount_option('/var', 'nodev', '1.1.2.4.2', 'Ensure nodev option set on /var partition')
+
+    def check_var_nosuid(self):
+        """Check if nosuid option is set on /var"""
+        self._check_mount_option('/var', 'nosuid', '1.1.2.4.3', 'Ensure nosuid option set on /var partition')
+
+    # /var/tmp partition checks
+    def check_vartmp_partition(self):
+        """Check if /var/tmp is a separate partition"""
+        self._check_partition_exists('/var/tmp', '1.1.2.5.1', 'Ensure separate partition exists for /var/tmp')
+
+    def check_vartmp_nodev(self):
+        """Check if nodev option is set on /var/tmp"""
+        self._check_mount_option('/var/tmp', 'nodev', '1.1.2.5.2', 'Ensure nodev option set on /var/tmp partition')
+
+    def check_vartmp_nosuid(self):
+        """Check if nosuid option is set on /var/tmp"""
+        self._check_mount_option('/var/tmp', 'nosuid', '1.1.2.5.3', 'Ensure nosuid option set on /var/tmp partition')
+
+    def check_vartmp_noexec(self):
+        """Check if noexec option is set on /var/tmp"""
+        self._check_mount_option('/var/tmp', 'noexec', '1.1.2.5.4', 'Ensure noexec option set on /var/tmp partition')
+
+    # /var/log partition checks
+    def check_varlog_partition(self):
+        """Check if /var/log is a separate partition"""
+        self._check_partition_exists('/var/log', '1.1.2.6.1', 'Ensure separate partition exists for /var/log')
+
+    def check_varlog_nodev(self):
+        """Check if nodev option is set on /var/log"""
+        self._check_mount_option('/var/log', 'nodev', '1.1.2.6.2', 'Ensure nodev option set on /var/log partition')
+
+    def check_varlog_nosuid(self):
+        """Check if nosuid option is set on /var/log"""
+        self._check_mount_option('/var/log', 'nosuid', '1.1.2.6.3', 'Ensure nosuid option set on /var/log partition')
+
+    def check_varlog_noexec(self):
+        """Check if noexec option is set on /var/log"""
+        self._check_mount_option('/var/log', 'noexec', '1.1.2.6.4', 'Ensure noexec option set on /var/log partition')
+
+    # /var/log/audit partition checks
+    def check_varlogaudit_partition(self):
+        """Check if /var/log/audit is a separate partition"""
+        self._check_partition_exists('/var/log/audit', '1.1.2.7.1', 'Ensure separate partition exists for /var/log/audit')
+
+    def check_varlogaudit_nodev(self):
+        """Check if nodev option is set on /var/log/audit"""
+        self._check_mount_option('/var/log/audit', 'nodev', '1.1.2.7.2', 'Ensure nodev option set on /var/log/audit partition')
+
+    def check_varlogaudit_nosuid(self):
+        """Check if nosuid option is set on /var/log/audit"""
+        self._check_mount_option('/var/log/audit', 'nosuid', '1.1.2.7.3', 'Ensure nosuid option set on /var/log/audit partition')
+
+    def check_varlogaudit_noexec(self):
+        """Check if noexec option is set on /var/log/audit"""
+        self._check_mount_option('/var/log/audit', 'noexec', '1.1.2.7.4', 'Ensure noexec option set on /var/log/audit partition')
+
+    def run_all_checks(self):
+        """Run all filesystem partition checks"""
+        # /tmp checks
+        self.check_tmp_partition()
+        self.check_tmp_nodev()
+        self.check_tmp_nosuid()
+        self.check_tmp_noexec()
+
+        # /dev/shm checks
+        self.check_devshm_partition()
+        self.check_devshm_nodev()
+        self.check_devshm_nosuid()
+        self.check_devshm_noexec()
+
+        # /home checks
+        self.check_home_partition()
+        self.check_home_nodev()
+        self.check_home_nosuid()
+
+        # /var checks
+        self.check_var_partition()
+        self.check_var_nodev()
+        self.check_var_nosuid()
+
+        # /var/tmp checks
+        self.check_vartmp_partition()
+        self.check_vartmp_nodev()
+        self.check_vartmp_nosuid()
+        self.check_vartmp_noexec()
+
+        # /var/log checks
+        self.check_varlog_partition()
+        self.check_varlog_nodev()
+        self.check_varlog_nosuid()
+        self.check_varlog_noexec()
+
+        # /var/log/audit checks
+        self.check_varlogaudit_partition()
+        self.check_varlogaudit_nodev()
+        self.check_varlogaudit_nosuid()
+        self.check_varlogaudit_noexec()
+
+
 class UserAuditor(BaseAuditor):
     """Auditor for user and group configurations"""
 
@@ -1641,6 +1882,10 @@ class DebianCISAudit:
         print("[*] Running Filesystem Checks...")
         filesystem_auditor = FileSystemAuditor(self.reporter)
         filesystem_auditor.run_all_checks()
+
+        print("[*] Running Filesystem Partition Checks...")
+        partition_auditor = FilesystemPartitionAuditor(self.reporter)
+        partition_auditor.run_all_checks()
 
         print("[*] Running Service Checks...")
         service_auditor = ServiceAuditor(self.reporter)

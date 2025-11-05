@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 36 (~9%)
-- **Status:** Aktiv in Entwicklung - Phase 2 gestartet
+- **Aktuell implementiert:** 62 (~15%)
+- **Status:** Aktiv in Entwicklung - Phase 2 läuft
 
 ---
 
@@ -44,10 +44,10 @@
 ### Kritische Sicherheits-Checks
 
 #### 1. Initial Setup - Filesystem (1.1.x)
-**Priorität: HOCH** - 45+ Checks
+**Priorität: HOCH** - 36+ Checks
 
 <details>
-<summary>Filesystem Kernel Modules (1.1.1.x) - 10 Checks</summary>
+<summary>Filesystem Kernel Modules (1.1.1.x) - 10 Checks (TODO)</summary>
 
 - [ ] 1.1.1.1 - Ensure cramfs kernel module is not available
 - [ ] 1.1.1.2 - Ensure freevxfs kernel module is not available
@@ -63,47 +63,47 @@
 </details>
 
 <details>
-<summary>Filesystem Partitions (1.1.2.x) - 35 Checks</summary>
+<summary>Filesystem Partitions (1.1.2.x) - 26 Checks ✅ ABGESCHLOSSEN</summary>
 
 **Configure /tmp (1.1.2.1.x)**
-- [ ] 1.1.2.1.1 - Ensure /tmp is a separate partition
-- [ ] 1.1.2.1.2 - Ensure nodev option set on /tmp partition
-- [ ] 1.1.2.1.3 - Ensure nosuid option set on /tmp partition
-- [ ] 1.1.2.1.4 - Ensure noexec option set on /tmp partition
+- [x] 1.1.2.1.1 - Ensure /tmp is a separate partition
+- [x] 1.1.2.1.2 - Ensure nodev option set on /tmp partition
+- [x] 1.1.2.1.3 - Ensure nosuid option set on /tmp partition
+- [x] 1.1.2.1.4 - Ensure noexec option set on /tmp partition
 
 **Configure /dev/shm (1.1.2.2.x)**
-- [ ] 1.1.2.2.1 - Ensure /dev/shm is a separate partition
-- [ ] 1.1.2.2.2 - Ensure nodev option set on /dev/shm partition
-- [ ] 1.1.2.2.3 - Ensure nosuid option set on /dev/shm partition
-- [ ] 1.1.2.2.4 - Ensure noexec option set on /dev/shm partition
+- [x] 1.1.2.2.1 - Ensure /dev/shm is a separate partition
+- [x] 1.1.2.2.2 - Ensure nodev option set on /dev/shm partition
+- [x] 1.1.2.2.3 - Ensure nosuid option set on /dev/shm partition
+- [x] 1.1.2.2.4 - Ensure noexec option set on /dev/shm partition
 
 **Configure /home (1.1.2.3.x)**
-- [ ] 1.1.2.3.1 - Ensure separate partition exists for /home
-- [ ] 1.1.2.3.2 - Ensure nodev option set on /home partition
-- [ ] 1.1.2.3.3 - Ensure nosuid option set on /home partition
+- [x] 1.1.2.3.1 - Ensure separate partition exists for /home
+- [x] 1.1.2.3.2 - Ensure nodev option set on /home partition
+- [x] 1.1.2.3.3 - Ensure nosuid option set on /home partition
 
 **Configure /var (1.1.2.4.x)**
-- [ ] 1.1.2.4.1 - Ensure separate partition exists for /var
-- [ ] 1.1.2.4.2 - Ensure nodev option set on /var partition
-- [ ] 1.1.2.4.3 - Ensure nosuid option set on /var partition
+- [x] 1.1.2.4.1 - Ensure separate partition exists for /var
+- [x] 1.1.2.4.2 - Ensure nodev option set on /var partition
+- [x] 1.1.2.4.3 - Ensure nosuid option set on /var partition
 
 **Configure /var/tmp (1.1.2.5.x)**
-- [ ] 1.1.2.5.1 - Ensure separate partition exists for /var/tmp
-- [ ] 1.1.2.5.2 - Ensure nodev option set on /var/tmp partition
-- [ ] 1.1.2.5.3 - Ensure nosuid option set on /var/tmp partition
-- [ ] 1.1.2.5.4 - Ensure noexec option set on /var/tmp partition
+- [x] 1.1.2.5.1 - Ensure separate partition exists for /var/tmp
+- [x] 1.1.2.5.2 - Ensure nodev option set on /var/tmp partition
+- [x] 1.1.2.5.3 - Ensure nosuid option set on /var/tmp partition
+- [x] 1.1.2.5.4 - Ensure noexec option set on /var/tmp partition
 
 **Configure /var/log (1.1.2.6.x)**
-- [ ] 1.1.2.6.1 - Ensure separate partition exists for /var/log
-- [ ] 1.1.2.6.2 - Ensure nodev option set on /var/log partition
-- [ ] 1.1.2.6.3 - Ensure nosuid option set on /var/log partition
-- [ ] 1.1.2.6.4 - Ensure noexec option set on /var/log partition
+- [x] 1.1.2.6.1 - Ensure separate partition exists for /var/log
+- [x] 1.1.2.6.2 - Ensure nodev option set on /var/log partition
+- [x] 1.1.2.6.3 - Ensure nosuid option set on /var/log partition
+- [x] 1.1.2.6.4 - Ensure noexec option set on /var/log partition
 
 **Configure /var/log/audit (1.1.2.7.x)**
-- [ ] 1.1.2.7.1 - Ensure separate partition exists for /var/log/audit
-- [ ] 1.1.2.7.2 - Ensure nodev option set on /var/log/audit partition
-- [ ] 1.1.2.7.3 - Ensure nosuid option set on /var/log/audit partition
-- [ ] 1.1.2.7.4 - Ensure noexec option set on /var/log/audit partition
+- [x] 1.1.2.7.1 - Ensure separate partition exists for /var/log/audit
+- [x] 1.1.2.7.2 - Ensure nodev option set on /var/log/audit partition
+- [x] 1.1.2.7.3 - Ensure nosuid option set on /var/log/audit partition
+- [x] 1.1.2.7.4 - Ensure noexec option set on /var/log/audit partition
 
 </details>
 
@@ -289,30 +289,30 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
-| 1. Initial Setup | 0 | 100+ | 0% |
+| 1. Initial Setup (Filesystems) | 26 | 100+ | 26% |
 | 2. Services | 3 | 40+ | 7.5% |
 | 3. Network | 2 | 20+ | 10% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
 | 6. Logging/Auditing | 4 | 80+ | 5% |
 | 7. System Maintenance | 5 | 20+ | 25% |
-| **TOTAL** | **36** | **400+** | **~9%** |
+| **TOTAL** | **62** | **400+** | **~15%** |
 
 ---
 
 ## 🎯 Nächste Releases
 
-### v1.1.0 ✅ ABGESCHLOSSEN
+### v1.1.0 ✅ ABGESCHLOSSEN (2025-11-05)
 - SSH Configuration Checks (22 Checks)
 - **Gesamt:** 36 Checks
 
-### v1.2.0 (In Arbeit)
-- Filesystem Partition Checks (35 Checks)
-- **Geplant gesamt:** 71 Checks
+### v1.2.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- Filesystem Partition Checks (26 Checks)
+- **Gesamt:** 62 Checks
 
 ### v1.3.0 (Geplant)
 - Additional Services Checks (22 Checks)
-- **Geplant gesamt:** 93 Checks
+- **Geplant gesamt:** 84 Checks
 
 ---
 
