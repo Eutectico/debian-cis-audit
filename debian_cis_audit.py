@@ -399,12 +399,296 @@ class AuditdAuditor(BaseAuditor):
                 message="Audit log file permissions are correct"
             ))
 
+    def check_audit_log_file_size(self):
+        """6.2.2.1 - Ensure audit log file size is configured"""
+        config_path = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.1",
+                title="Ensure audit log file size is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"{config_path} not found"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.1",
+                title="Ensure audit log file size is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Parse configuration
+        config = {}
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+
+        max_log_file = config.get('max_log_file', '')
+
+        if not max_log_file:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.1",
+                title="Ensure audit log file size is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="max_log_file is not configured in auditd.conf",
+                remediation="Set max_log_file in /etc/audit/auditd.conf (recommended: at least 8 MB)"
+            ))
+            return
+
+        try:
+            max_log_file_int = int(max_log_file)
+            if max_log_file_int < 8:
+                self.reporter.add_result(AuditResult(
+                    check_id="6.2.2.1",
+                    title="Ensure audit log file size is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"max_log_file is too small: {max_log_file} MB",
+                    details="CIS recommends at least 8 MB to ensure adequate audit data retention",
+                    remediation="Set max_log_file=8 or higher in /etc/audit/auditd.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="6.2.2.1",
+                    title="Ensure audit log file size is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"max_log_file is properly configured: {max_log_file} MB"
+                ))
+        except ValueError:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.1",
+                title="Ensure audit log file size is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"max_log_file has invalid value: {max_log_file}",
+                remediation="Set max_log_file to a valid number in /etc/audit/auditd.conf"
+            ))
+
+    def check_audit_max_log_file_action(self):
+        """6.2.2.2 - Ensure audit logs are not automatically deleted"""
+        config_path = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.2",
+                title="Ensure audit logs are not automatically deleted",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"{config_path} not found"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.2",
+                title="Ensure audit logs are not automatically deleted",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Parse configuration
+        config = {}
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+
+        max_log_file_action = config.get('max_log_file_action', '')
+
+        if not max_log_file_action:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.2",
+                title="Ensure audit logs are not automatically deleted",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="max_log_file_action is not configured",
+                remediation="Set max_log_file_action to 'keep_logs' or 'rotate' in /etc/audit/auditd.conf"
+            ))
+            return
+
+        # Check if set to keep_logs or rotate (both are acceptable per CIS)
+        if max_log_file_action.lower() in ['keep_logs', 'rotate']:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.2",
+                title="Ensure audit logs are not automatically deleted",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"max_log_file_action is properly configured: {max_log_file_action}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.2",
+                title="Ensure audit logs are not automatically deleted",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"max_log_file_action={max_log_file_action} may cause logs to be deleted",
+                details="CIS requires 'keep_logs' or 'rotate' to prevent automatic log deletion",
+                remediation="Set max_log_file_action=rotate in /etc/audit/auditd.conf"
+            ))
+
+    def check_audit_space_left_action(self):
+        """6.2.2.3 - Ensure system is disabled when audit logs are full (space_left_action)"""
+        config_path = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.3",
+                title="Ensure system is disabled when audit logs are full",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"{config_path} not found"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.3",
+                title="Ensure system is disabled when audit logs are full",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Parse configuration
+        config = {}
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+
+        space_left_action = config.get('space_left_action', '')
+
+        if not space_left_action:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.3",
+                title="Ensure system is disabled when audit logs are full",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="space_left_action is not configured",
+                remediation="Set space_left_action to 'email', 'exec', 'single', or 'halt' in /etc/audit/auditd.conf"
+            ))
+            return
+
+        # CIS recommends email, exec, single, or halt
+        acceptable_actions = ['email', 'exec', 'single', 'halt']
+        if space_left_action.lower() in acceptable_actions:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.3",
+                title="Ensure system is disabled when audit logs are full",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"space_left_action is properly configured: {space_left_action}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.3",
+                title="Ensure system is disabled when audit logs are full",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"space_left_action={space_left_action} is not recommended",
+                details="CIS recommends 'email', 'exec', 'single', or 'halt'",
+                remediation="Set space_left_action=email in /etc/audit/auditd.conf"
+            ))
+
+    def check_audit_admin_space_left_action(self):
+        """6.2.2.4 - Ensure system is disabled when audit logs are full (admin_space_left_action)"""
+        config_path = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.4",
+                title="Ensure admin_space_left_action is configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"{config_path} not found"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.4",
+                title="Ensure admin_space_left_action is configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Parse configuration
+        config = {}
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    config[key.strip()] = value.strip()
+
+        admin_space_left_action = config.get('admin_space_left_action', '')
+
+        if not admin_space_left_action:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.4",
+                title="Ensure admin_space_left_action is configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="admin_space_left_action is not configured",
+                remediation="Set admin_space_left_action to 'single' or 'halt' in /etc/audit/auditd.conf"
+            ))
+            return
+
+        # CIS recommends single or halt
+        if admin_space_left_action.lower() in ['single', 'halt']:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.4",
+                title="Ensure admin_space_left_action is configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"admin_space_left_action is properly configured: {admin_space_left_action}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.2.4",
+                title="Ensure admin_space_left_action is configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"admin_space_left_action={admin_space_left_action} is not recommended",
+                details="CIS recommends 'single' or 'halt' for admin_space_left_action",
+                remediation="Set admin_space_left_action=single in /etc/audit/auditd.conf"
+            ))
+
     def run_all_checks(self):
         """Run all auditd checks"""
         self.check_auditd_installed()
         self.check_auditd_enabled()
         self.check_auditd_config()
         self.check_audit_log_permissions()
+        # Audit Data Retention checks (6.2.2.x)
+        self.check_audit_log_file_size()
+        self.check_audit_max_log_file_action()
+        self.check_audit_space_left_action()
+        self.check_audit_admin_space_left_action()
 
 
 class SystemLoggingAuditor(BaseAuditor):
