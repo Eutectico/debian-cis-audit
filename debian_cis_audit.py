@@ -407,6 +407,400 @@ class AuditdAuditor(BaseAuditor):
         self.check_audit_log_permissions()
 
 
+class SystemLoggingAuditor(BaseAuditor):
+    """Auditor for system logging configurations (systemd-journald and rsyslog)"""
+
+    def check_journald_compress(self):
+        """Check if journald is configured to compress large log files (6.1.1.3)"""
+        journald_conf = self.read_file('/etc/systemd/journald.conf')
+        if not journald_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.3",
+                title="Ensure journald is configured to compress large log files",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot read /etc/systemd/journald.conf"
+            ))
+            return
+
+        compress_enabled = False
+        for line in journald_conf.split('\n'):
+            line = line.strip()
+            if line.startswith('Compress='):
+                value = line.split('=', 1)[1].strip()
+                if value.lower() == 'yes':
+                    compress_enabled = True
+                break
+
+        if compress_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.3",
+                title="Ensure journald is configured to compress large log files",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="journald compression is enabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.3",
+                title="Ensure journald is configured to compress large log files",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="journald compression is not enabled",
+                remediation="Add 'Compress=yes' to /etc/systemd/journald.conf and restart systemd-journald"
+            ))
+
+    def check_journald_persistent(self):
+        """Check if journald is configured to write logs to persistent disk (6.1.1.4)"""
+        journald_conf = self.read_file('/etc/systemd/journald.conf')
+        if not journald_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.4",
+                title="Ensure journald is configured to write logfiles to persistent disk",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot read /etc/systemd/journald.conf"
+            ))
+            return
+
+        storage_persistent = False
+        for line in journald_conf.split('\n'):
+            line = line.strip()
+            if line.startswith('Storage='):
+                value = line.split('=', 1)[1].strip()
+                if value.lower() in ['persistent', 'auto']:
+                    storage_persistent = True
+                break
+
+        if storage_persistent:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.4",
+                title="Ensure journald is configured to write logfiles to persistent disk",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="journald is configured for persistent storage"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.4",
+                title="Ensure journald is configured to write logfiles to persistent disk",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="journald is not configured for persistent storage",
+                remediation="Add 'Storage=persistent' to /etc/systemd/journald.conf and restart systemd-journald"
+            ))
+
+    def check_journald_no_remote(self):
+        """Check that journald is not configured to receive logs from remote client (6.1.1.5)"""
+        returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'systemd-journal-remote.socket'])
+
+        if returncode != 0 or stdout.strip() in ['disabled', 'masked']:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.5",
+                title="Ensure journald is not configured to receive logs from a remote client",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="systemd-journal-remote.socket is not enabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.5",
+                title="Ensure journald is not configured to receive logs from a remote client",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="systemd-journal-remote.socket is enabled",
+                remediation="Run 'systemctl disable systemd-journal-remote.socket' and 'systemctl mask systemd-journal-remote.socket'"
+            ))
+
+    def check_journald_forward_to_rsyslog(self):
+        """Check if journald forwards to rsyslog (6.1.1.2)"""
+        journald_conf = self.read_file('/etc/systemd/journald.conf')
+        if not journald_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.2",
+                title="Ensure journald is configured to send logs to rsyslog",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot read /etc/systemd/journald.conf"
+            ))
+            return
+
+        forward_enabled = False
+        for line in journald_conf.split('\n'):
+            line = line.strip()
+            if line.startswith('ForwardToSyslog='):
+                value = line.split('=', 1)[1].strip()
+                if value.lower() == 'yes':
+                    forward_enabled = True
+                break
+
+        if forward_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.2",
+                title="Ensure journald is configured to send logs to rsyslog",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="journald forwards logs to rsyslog"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.2",
+                title="Ensure journald is configured to send logs to rsyslog",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="journald does not forward logs to rsyslog",
+                remediation="Add 'ForwardToSyslog=yes' to /etc/systemd/journald.conf and restart systemd-journald"
+            ))
+
+    def check_rsyslog_installed(self):
+        """Check if rsyslog is installed (6.1.2.1)"""
+        returncode, stdout, _ = self.run_command(['dpkg', '-s', 'rsyslog'])
+
+        if returncode == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.1",
+                title="Ensure rsyslog is installed",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="rsyslog is installed"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.1",
+                title="Ensure rsyslog is installed",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="rsyslog is not installed",
+                remediation="Install rsyslog: apt install rsyslog"
+            ))
+
+    def check_rsyslog_enabled(self):
+        """Check if rsyslog service is enabled (6.1.2.2)"""
+        returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'rsyslog'])
+
+        if returncode == 0 and stdout.strip() == 'enabled':
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.2",
+                title="Ensure rsyslog service is enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="rsyslog service is enabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.2",
+                title="Ensure rsyslog service is enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="rsyslog service is not enabled",
+                remediation="Enable rsyslog: systemctl enable rsyslog"
+            ))
+
+    def check_rsyslog_file_permissions(self):
+        """Check rsyslog default file permissions configuration (6.1.2.3)"""
+        rsyslog_conf = self.read_file('/etc/rsyslog.conf')
+        if not rsyslog_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.3",
+                title="Ensure rsyslog default file permissions are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot read /etc/rsyslog.conf"
+            ))
+            return
+
+        file_perms_configured = False
+        for line in rsyslog_conf.split('\n'):
+            line = line.strip()
+            if line.startswith('$FileCreateMode'):
+                value = line.split()[1] if len(line.split()) > 1 else ''
+                # Should be 0640 or more restrictive
+                if value in ['0640', '0600']:
+                    file_perms_configured = True
+                break
+
+        if file_perms_configured:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.3",
+                title="Ensure rsyslog default file permissions are configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="rsyslog file permissions are properly configured"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.3",
+                title="Ensure rsyslog default file permissions are configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="rsyslog file permissions are not properly configured",
+                remediation="Add '$FileCreateMode 0640' to /etc/rsyslog.conf and restart rsyslog"
+            ))
+
+    def check_rsyslog_logging_configured(self):
+        """Check if logging is configured (6.1.2.4)"""
+        rsyslog_conf = self.read_file('/etc/rsyslog.conf')
+        if not rsyslog_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.4",
+                title="Ensure logging is configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot read /etc/rsyslog.conf"
+            ))
+            return
+
+        # Check for basic logging rules (at least some log destinations)
+        log_rules = []
+        for line in rsyslog_conf.split('\n'):
+            line = line.strip()
+            # Look for common log rules (*.*, auth.*, kern.*, etc.)
+            if not line.startswith('#') and ('*.*' in line or 'auth.' in line or 'kern.' in line or 'cron.' in line):
+                if '/var/log/' in line:
+                    log_rules.append(line)
+
+        if log_rules:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.4",
+                title="Ensure logging is configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"Logging is configured ({len(log_rules)} rules found)"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.4",
+                title="Ensure logging is configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="No logging rules found in rsyslog.conf",
+                remediation="Configure appropriate logging rules in /etc/rsyslog.conf"
+            ))
+
+    def check_rsyslog_remote_logs(self):
+        """Check if rsyslog is configured to send logs to remote host (6.1.2.5)"""
+        rsyslog_conf = self.read_file('/etc/rsyslog.conf')
+        if not rsyslog_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.5",
+                title="Ensure rsyslog is configured to send logs to a remote log host",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot read /etc/rsyslog.conf"
+            ))
+            return
+
+        # Look for remote logging configuration (@@remote-host or @remote-host)
+        remote_configured = False
+        for line in rsyslog_conf.split('\n'):
+            line = line.strip()
+            if not line.startswith('#') and ('@@' in line or (line.startswith('*.*') and '@' in line)):
+                remote_configured = True
+                break
+
+        if remote_configured:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.5",
+                title="Ensure rsyslog is configured to send logs to a remote log host",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="rsyslog is configured for remote logging"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.5",
+                title="Ensure rsyslog is configured to send logs to a remote log host",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="rsyslog is not configured for remote logging",
+                details="Remote logging is recommended for centralized log management",
+                remediation="Add '*.* @@<remote-host>:<port>' to /etc/rsyslog.conf for TCP or '*.* @<remote-host>:<port>' for UDP"
+            ))
+
+    def check_rsyslog_remote_messages(self):
+        """Check that remote rsyslog messages are only accepted on designated log hosts (6.1.2.6)"""
+        rsyslog_conf = self.read_file('/etc/rsyslog.conf')
+        if not rsyslog_conf:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.6",
+                title="Ensure remote rsyslog messages are only accepted on designated log hosts",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot read /etc/rsyslog.conf"
+            ))
+            return
+
+        # Check if remote input modules are enabled
+        remote_enabled = False
+        for line in rsyslog_conf.split('\n'):
+            line = line.strip()
+            if not line.startswith('#'):
+                if 'imtcp' in line or 'imudp' in line or 'ModLoad imtcp' in line or 'ModLoad imudp' in line:
+                    remote_enabled = True
+                    break
+
+        # On non-log-host systems, remote input should be disabled
+        if not remote_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.6",
+                title="Ensure remote rsyslog messages are only accepted on designated log hosts",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="rsyslog is not accepting remote messages"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.2.6",
+                title="Ensure remote rsyslog messages are only accepted on designated log hosts",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="rsyslog is configured to accept remote messages",
+                details="This is only acceptable on designated log hosts",
+                remediation="If this is not a log host, comment out remote input modules (imtcp/imudp) in /etc/rsyslog.conf"
+            ))
+
+    def check_systemd_journal_remote_installed(self):
+        """Check if systemd-journal-remote is installed for remote journald (6.1.1.1)"""
+        returncode, stdout, _ = self.run_command(['dpkg', '-s', 'systemd-journal-remote'])
+
+        if returncode == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.1",
+                title="Ensure systemd-journal-remote is installed",
+                status=Status.PASS,
+                severity=Severity.LOW,
+                message="systemd-journal-remote is installed",
+                details="Only needed if using remote journal logging"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.1.1.1",
+                title="Ensure systemd-journal-remote is installed",
+                status=Status.WARNING,
+                severity=Severity.LOW,
+                message="systemd-journal-remote is not installed",
+                details="Only needed if you plan to send journal logs to a remote system",
+                remediation="If remote logging is needed: apt install systemd-journal-remote"
+            ))
+
+    def run_all_checks(self):
+        """Run all system logging checks"""
+        # systemd-journald checks
+        self.check_systemd_journal_remote_installed()
+        self.check_journald_forward_to_rsyslog()
+        self.check_journald_compress()
+        self.check_journald_persistent()
+        self.check_journald_no_remote()
+
+        # rsyslog checks
+        self.check_rsyslog_installed()
+        self.check_rsyslog_enabled()
+        self.check_rsyslog_file_permissions()
+        self.check_rsyslog_logging_configured()
+        self.check_rsyslog_remote_logs()
+        self.check_rsyslog_remote_messages()
+
+
 class FileSystemAuditor(BaseAuditor):
     """Auditor for filesystem permissions and configurations"""
 
@@ -2769,6 +3163,10 @@ class DebianCISAudit:
         print("\n[*] Running Auditd Checks...")
         auditd_auditor = AuditdAuditor(self.reporter)
         auditd_auditor.run_all_checks()
+
+        print("[*] Running System Logging Checks...")
+        logging_auditor = SystemLoggingAuditor(self.reporter)
+        logging_auditor.run_all_checks()
 
         print("[*] Running Filesystem Checks...")
         filesystem_auditor = FileSystemAuditor(self.reporter)

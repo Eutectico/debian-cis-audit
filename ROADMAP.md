@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 119 (~30%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 130 (~32%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅
 
 ---
 
@@ -216,8 +216,24 @@
 - [x] 7.2.9 - Ensure local interactive user home directories are configured
 - [x] 7.2.10 - Ensure local interactive user dot files access is configured
 
+### System Logging (6.1.x) ✅ ABGESCHLOSSEN - 11 Checks
+
+**systemd-journald Configuration (6.1.1.x) - 5 Checks**
+- [x] 6.1.1.1 - Ensure systemd-journal-remote is installed
+- [x] 6.1.1.2 - Ensure journald is configured to send logs to rsyslog
+- [x] 6.1.1.3 - Ensure journald is configured to compress large log files
+- [x] 6.1.1.4 - Ensure journald is configured to write logfiles to persistent disk
+- [x] 6.1.1.5 - Ensure journald is not configured to receive logs from a remote client
+
+**rsyslog Configuration (6.1.2.x) - 6 Checks**
+- [x] 6.1.2.1 - Ensure rsyslog is installed
+- [x] 6.1.2.2 - Ensure rsyslog service is enabled
+- [x] 6.1.2.3 - Ensure rsyslog default file permissions are configured
+- [x] 6.1.2.4 - Ensure logging is configured
+- [x] 6.1.2.5 - Ensure rsyslog is configured to send logs to a remote log host
+- [x] 6.1.2.6 - Ensure remote rsyslog messages are only accepted on designated log hosts
+
 ### Logging & Auditing (6.x) - Erweitern
-- [ ] 6.1.x - System Logging (20+ Checks)
 - [ ] 6.2.2.x - Audit Data Retention (4 Checks)
 - [ ] 6.2.3.x - Audit Rules (21 Checks)
 - [ ] 6.2.4.x - Audit File Access (erweitern, 9 weitere Checks)
@@ -303,9 +319,9 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
-| 6. Logging/Auditing | 4 | 80+ | 5% |
+| 6. Logging/Auditing | 15 | 80+ | 19% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **119** | **400+** | **~30%** |
+| **TOTAL** | **130** | **400+** | **~32%** |
 
 ---
 
@@ -330,9 +346,14 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - User/Group Configuration Checks (8 Checks)
 - **Gesamt:** 119 Checks (~30% Coverage)
 
+### v1.5.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- System Logging - systemd-journald (5 Checks)
+- System Logging - rsyslog (6 Checks)
+- **Gesamt:** 130 Checks (~32% Coverage)
+
 ### v2.0.0 (Geplant)
-- System Logging (6.1.x)
 - PAM & Password Policy (5.3.x & 5.4.x)
+- Audit Data Retention (6.2.2.x)
 - **Geplant gesamt:** 180+ Checks
 
 ---
