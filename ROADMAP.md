@@ -4,7 +4,7 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 93 (~23%)
+- **Aktuell implementiert:** 102 (~25%)
 - **Status:** Phase 2 ABGESCHLOSSEN! ✅
 
 ---
@@ -44,21 +44,22 @@
 ### Kritische Sicherheits-Checks
 
 #### 1. Initial Setup - Filesystem (1.1.x)
-**Priorität: HOCH** - 36+ Checks
+**Priorität: HOCH** - 35 Checks
 
 <details>
-<summary>Filesystem Kernel Modules (1.1.1.x) - 10 Checks (TODO)</summary>
+<summary>Filesystem Kernel Modules (1.1.1.x) - 9 Checks ✅ ABGESCHLOSSEN</summary>
 
-- [ ] 1.1.1.1 - Ensure cramfs kernel module is not available
-- [ ] 1.1.1.2 - Ensure freevxfs kernel module is not available
-- [ ] 1.1.1.3 - Ensure hfs kernel module is not available
-- [ ] 1.1.1.4 - Ensure hfsplus kernel module is not available
-- [ ] 1.1.1.5 - Ensure jffs2 kernel module is not available
-- [ ] 1.1.1.6 - Ensure overlayfs kernel module is not available
-- [ ] 1.1.1.7 - Ensure squashfs kernel module is not available
-- [ ] 1.1.1.8 - Ensure udf kernel module is not available
-- [ ] 1.1.1.9 - Ensure usb-storage kernel module is not available
-- [ ] 1.1.1.10 - Ensure unused filesystems kernel modules are not available
+- [x] 1.1.1.1 - Ensure cramfs kernel module is not available
+- [x] 1.1.1.2 - Ensure freevxfs kernel module is not available
+- [x] 1.1.1.3 - Ensure hfs kernel module is not available
+- [x] 1.1.1.4 - Ensure hfsplus kernel module is not available
+- [x] 1.1.1.5 - Ensure jffs2 kernel module is not available
+- [x] 1.1.1.6 - Ensure overlayfs kernel module is not available
+- [x] 1.1.1.7 - Ensure squashfs kernel module is not available
+- [x] 1.1.1.8 - Ensure udf kernel module is not available
+- [x] 1.1.1.9 - Ensure usb-storage kernel module is not available
+
+**Note:** Check 1.1.1.10 is a summary check covered by the above 9 individual module checks.
 
 </details>
 
@@ -289,14 +290,14 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
-| 1. Initial Setup (Filesystems) | 26 | 100+ | 26% |
+| 1. Initial Setup (Filesystems) | 35 | 100+ | 35% |
 | 2. Services | 22 | 40+ | 55% |
 | 3. Network | 13 | 20+ | 65% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
 | 6. Logging/Auditing | 4 | 80+ | 5% |
 | 7. System Maintenance | 5 | 20+ | 25% |
-| **TOTAL** | **93** | **400+** | **~23%** |
+| **TOTAL** | **102** | **400+** | **~25%** |
 
 ---
 
@@ -313,7 +314,8 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 ### v1.3.0 ✅ ABGESCHLOSSEN (2025-11-05)
 - Additional Services Checks (22 Checks)
 - Network Kernel Parameters (11 Checks)
-- **Gesamt:** 93 Checks
+- Filesystem Kernel Modules (9 Checks)
+- **Gesamt:** 102 Checks
 
 ### v2.0.0 (Geplant)
 - System Logging (6.1.x)

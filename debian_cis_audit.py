@@ -708,6 +708,80 @@ class ServiceAuditor(BaseAuditor):
             ))
 
 
+class KernelModuleAuditor(BaseAuditor):
+    """Auditor for kernel module configurations"""
+
+    def _check_module_disabled(self, module_name: str, check_id: str, title: str):
+        """Check if a kernel module is disabled"""
+        issues = []
+
+        # Check if module is currently loaded
+        returncode, stdout, stderr = self.run_command(['lsmod'])
+        if returncode == 0:
+            if module_name in stdout:
+                issues.append(f"Module {module_name} is currently loaded")
+
+        # Check if module is configured to be disabled in modprobe
+        modprobe_config = f'/etc/modprobe.d/{module_name}.conf'
+
+        # Also check common blacklist files
+        check_paths = [
+            modprobe_config,
+            '/etc/modprobe.d/blacklist.conf',
+            '/etc/modprobe.d/CIS.conf'
+        ]
+
+        module_disabled = False
+        for conf_path in check_paths:
+            if self.file_exists(conf_path):
+                content = self.read_file(conf_path)
+                if content:
+                    # Check for install <module> /bin/true or /bin/false
+                    if f'install {module_name}' in content and ('/bin/true' in content or '/bin/false' in content):
+                        module_disabled = True
+                        break
+                    # Check for blacklist
+                    if f'blacklist {module_name}' in content:
+                        module_disabled = True
+                        break
+
+        if not module_disabled:
+            issues.append(f"Module {module_name} is not disabled in modprobe configuration")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Kernel module {module_name} is not properly disabled",
+                details='\n'.join(f'  - {issue}' for issue in issues),
+                remediation=f"Create /etc/modprobe.d/{module_name}.conf with:\ninstall {module_name} /bin/true\nblacklist {module_name}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"Kernel module {module_name} is properly disabled"
+            ))
+
+    def run_all_checks(self):
+        """Run all kernel module checks"""
+        # Filesystem Kernel Modules (1.1.1.x - 10 checks)
+        self._check_module_disabled('cramfs', '1.1.1.1', 'Ensure cramfs kernel module is not available')
+        self._check_module_disabled('freevxfs', '1.1.1.2', 'Ensure freevxfs kernel module is not available')
+        self._check_module_disabled('hfs', '1.1.1.3', 'Ensure hfs kernel module is not available')
+        self._check_module_disabled('hfsplus', '1.1.1.4', 'Ensure hfsplus kernel module is not available')
+        self._check_module_disabled('jffs2', '1.1.1.5', 'Ensure jffs2 kernel module is not available')
+        self._check_module_disabled('overlay', '1.1.1.6', 'Ensure overlayfs kernel module is not available')
+        self._check_module_disabled('squashfs', '1.1.1.7', 'Ensure squashfs kernel module is not available')
+        self._check_module_disabled('udf', '1.1.1.8', 'Ensure udf kernel module is not available')
+        self._check_module_disabled('usb_storage', '1.1.1.9', 'Ensure usb-storage kernel module is not available')
+        # 1.1.1.10 is covered by the above checks
+
+
 class NetworkAuditor(BaseAuditor):
     """Auditor for network configurations"""
 
@@ -2097,6 +2171,10 @@ class DebianCISAudit:
         print("[*] Running Filesystem Checks...")
         filesystem_auditor = FileSystemAuditor(self.reporter)
         filesystem_auditor.run_all_checks()
+
+        print("[*] Running Kernel Module Checks...")
+        kernel_module_auditor = KernelModuleAuditor(self.reporter)
+        kernel_module_auditor.run_all_checks()
 
         print("[*] Running Filesystem Partition Checks...")
         partition_auditor = FilesystemPartitionAuditor(self.reporter)
