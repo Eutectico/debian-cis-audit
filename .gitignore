@@ -98,6 +98,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.gitignore
 env/
 venv/
 ENV/
@@ -147,4 +148,6 @@ Debian_CIS/*.pdf
 *.backup
 *.bak
 *.old
+
+# Context
 CLAUDE.md
