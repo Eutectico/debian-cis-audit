@@ -1038,6 +1038,249 @@ class AuditdAuditor(BaseAuditor):
                 message=f"All audit rules files have correct permissions ({len(passed)} files checked)"
             ))
 
+    def _check_audit_rule(self, check_id: str, title: str, pattern: str, severity=Severity.MEDIUM):
+        """Helper method to check if an audit rule exists"""
+        # Check in /etc/audit/rules.d/*.rules files
+        rules_dir = '/etc/audit/rules.d'
+        audit_rules_file = '/etc/audit/audit.rules'
+
+        found = False
+
+        # Check rules.d directory
+        if self.file_exists(rules_dir):
+            try:
+                for filename in os.listdir(rules_dir):
+                    if filename.endswith('.rules'):
+                        filepath = os.path.join(rules_dir, filename)
+                        content = self.read_file(filepath)
+                        if content and pattern in content:
+                            found = True
+                            break
+            except Exception:
+                pass
+
+        # Also check audit.rules
+        if not found and self.file_exists(audit_rules_file):
+            content = self.read_file(audit_rules_file)
+            if content and pattern in content:
+                found = True
+
+        # Alternative: Check running rules with auditctl -l
+        if not found:
+            returncode, stdout, _ = self.run_command(['auditctl', '-l'])
+            if returncode == 0 and pattern in stdout:
+                found = True
+
+        if found:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=severity,
+                message="Audit rule is configured"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=severity,
+                message="Audit rule is not configured",
+                details=f"Expected pattern: {pattern}",
+                remediation=f"Add the following rule to /etc/audit/rules.d/50-*.rules:\n{pattern}"
+            ))
+
+    def check_audit_time_rules(self):
+        """6.2.3.1 - Ensure changes to system time are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.1",
+            title="Ensure changes to system time are collected",
+            pattern="-a always,exit -F arch=b64 -S adjtimex,settimeofday",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_user_group_rules(self):
+        """6.2.3.2 - Ensure events that modify user/group information are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.2",
+            title="Ensure events that modify user/group information are collected",
+            pattern="-w /etc/group -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_network_env_rules(self):
+        """6.2.3.3 - Ensure events that modify the system's network environment are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.3",
+            title="Ensure events that modify the system's network environment are collected",
+            pattern="-w /etc/issue -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_apparmor_rules(self):
+        """6.2.3.4 - Ensure events that modify the system's Mandatory Access Controls are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.4",
+            title="Ensure events that modify the system's Mandatory Access Controls are collected",
+            pattern="-w /etc/apparmor/ -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_login_logout_rules(self):
+        """6.2.3.5 - Ensure login and logout events are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.5",
+            title="Ensure login and logout events are collected",
+            pattern="-w /var/log/lastlog -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_session_rules(self):
+        """6.2.3.6 - Ensure session initiation information is collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.6",
+            title="Ensure session initiation information is collected",
+            pattern="-w /var/run/utmp -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_perm_mod_rules(self):
+        """6.2.3.7 - Ensure discretionary access control permission modification events are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.7",
+            title="Ensure discretionary access control permission modification events are collected",
+            pattern="-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_access_rules(self):
+        """6.2.3.8 - Ensure unsuccessful file access attempts are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.8",
+            title="Ensure unsuccessful file access attempts are collected",
+            pattern="-a always,exit -F arch=b64 -S open,openat,openat2,open_by_handle_at,truncate,ftruncate -F exit=-EACCES",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_privileged_commands_rules(self):
+        """6.2.3.9 - Ensure use of privileged commands are collected"""
+        # This is a complex check - we need to find all SUID/SGID programs
+        # For simplicity, we check for a common pattern
+        self._check_audit_rule(
+            check_id="6.2.3.9",
+            title="Ensure use of privileged commands are collected",
+            pattern="-a always,exit -F path=/usr/bin/sudo -F perm=x -F auid>=1000 -F auid!=unset",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_mounts_rules(self):
+        """6.2.3.10 - Ensure successful file system mounts are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.10",
+            title="Ensure successful file system mounts are collected",
+            pattern="-a always,exit -F arch=b64 -S mount",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_file_deletion_rules(self):
+        """6.2.3.11 - Ensure file deletion events by users are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.11",
+            title="Ensure file deletion events by users are collected",
+            pattern="-a always,exit -F arch=b64 -S rename,unlink,unlinkat,renameat",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_sudoers_rules(self):
+        """6.2.3.12 - Ensure changes to system administration scope (sudoers) are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.12",
+            title="Ensure changes to system administration scope (sudoers) are collected",
+            pattern="-w /etc/sudoers -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_sudolog_rules(self):
+        """6.2.3.13 - Ensure system administrator command executions (sudo) are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.13",
+            title="Ensure system administrator command executions (sudo) are collected",
+            pattern="-w /var/log/sudo.log -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_kernel_modules_rules(self):
+        """6.2.3.14 - Ensure kernel module loading and unloading is collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.14",
+            title="Ensure kernel module loading and unloading is collected",
+            pattern="-a always,exit -F arch=b64 -S init_module,finit_module,delete_module",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_immutable_rules(self):
+        """6.2.3.15 - Ensure the audit configuration is immutable"""
+        self._check_audit_rule(
+            check_id="6.2.3.15",
+            title="Ensure the audit configuration is immutable",
+            pattern="-e 2",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_cron_rules(self):
+        """6.2.3.16 - Ensure cron jobs are logged"""
+        self._check_audit_rule(
+            check_id="6.2.3.16",
+            title="Ensure cron jobs are logged",
+            pattern="-w /etc/cron",
+            severity=Severity.LOW
+        )
+
+    def check_audit_passwd_rules(self):
+        """6.2.3.17 - Ensure password modification events are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.17",
+            title="Ensure password modification events are collected",
+            pattern="-w /etc/security/opasswd -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_hosts_rules(self):
+        """6.2.3.18 - Ensure modifications to /etc/hosts are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.18",
+            title="Ensure modifications to /etc/hosts are collected",
+            pattern="-w /etc/hosts -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_sysctl_rules(self):
+        """6.2.3.19 - Ensure kernel parameters are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.19",
+            title="Ensure kernel parameters are collected",
+            pattern="-w /etc/sysctl.conf -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_localtime_rules(self):
+        """6.2.3.20 - Ensure modifications to system time zone information are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.20",
+            title="Ensure modifications to system time zone information are collected",
+            pattern="-w /etc/localtime -p wa",
+            severity=Severity.LOW
+        )
+
+    def check_audit_ssh_rules(self):
+        """6.2.3.21 - Ensure SSH configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.21",
+            title="Ensure SSH configuration changes are collected",
+            pattern="-w /etc/ssh/sshd_config -p wa",
+            severity=Severity.MEDIUM
+        )
+
     def run_all_checks(self):
         """Run all auditd checks"""
         self.check_auditd_installed()
@@ -1048,6 +1291,28 @@ class AuditdAuditor(BaseAuditor):
         self.check_audit_max_log_file_action()
         self.check_audit_space_left_action()
         self.check_audit_admin_space_left_action()
+        # Audit Rules checks (6.2.3.x)
+        self.check_audit_time_rules()
+        self.check_audit_user_group_rules()
+        self.check_audit_network_env_rules()
+        self.check_audit_apparmor_rules()
+        self.check_audit_login_logout_rules()
+        self.check_audit_session_rules()
+        self.check_audit_perm_mod_rules()
+        self.check_audit_access_rules()
+        self.check_audit_privileged_commands_rules()
+        self.check_audit_mounts_rules()
+        self.check_audit_file_deletion_rules()
+        self.check_audit_sudoers_rules()
+        self.check_audit_sudolog_rules()
+        self.check_audit_kernel_modules_rules()
+        self.check_audit_immutable_rules()
+        self.check_audit_cron_rules()
+        self.check_audit_passwd_rules()
+        self.check_audit_hosts_rules()
+        self.check_audit_sysctl_rules()
+        self.check_audit_localtime_rules()
+        self.check_audit_ssh_rules()
         # Audit File Access checks (6.2.4.x)
         self.check_audit_log_permissions()
         self.check_audit_log_directory_permissions()

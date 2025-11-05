@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 145 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~36% Coverage)
+**Aktueller Status:** 166 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~41% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,7 +277,7 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 145 von 400+ Checks implementiert (~36%)
+**Status:** 166 von 400+ Checks implementiert (~41%)
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
@@ -293,6 +293,7 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **6.1.2.x** - rsyslog Configuration (6 Checks)
 - **6.2.1.x** - Auditd Installation & Service (2 Checks)
 - **6.2.2.x** - Audit Data Retention (4 Checks)
+- **6.2.3.x** - Audit Rules (21 Checks)
 - **6.2.4.x** - Audit File Access (9 Checks)
 - **6.3.x** - Integrity Checking (3 Checks)
 - **7.1.x** - System File Permissions (12 Checks)
