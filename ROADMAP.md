@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 102 (~25%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 119 (~30%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅
 
 ---
 
@@ -192,26 +192,29 @@
 
 ---
 
-## 🔄 Phase 3: Medium Priority (Zukunft)
+## 🔄 Phase 3: Medium Priority ✅ TEILWEISE ABGESCHLOSSEN
 
-### System Maintenance (7.x) - Erweitern
-- [ ] 7.1.2 - Ensure permissions on /etc/passwd- are configured
-- [ ] 7.1.3 - Ensure permissions on /etc/group are configured
-- [ ] 7.1.4 - Ensure permissions on /etc/group- are configured
-- [ ] 7.1.6 - Ensure permissions on /etc/shadow- are configured
-- [ ] 7.1.7 - Ensure permissions on /etc/gshadow are configured
-- [ ] 7.1.8 - Ensure permissions on /etc/gshadow- are configured
-- [ ] 7.1.9 - Ensure permissions on /etc/shells are configured
-- [ ] 7.1.10 - Ensure permissions on /etc/security/opasswd are configured
-- [ ] 7.1.12 - Ensure no files or directories without an owner and a group exist
-- [ ] 7.2.1 - Ensure accounts in /etc/passwd use shadowed passwords
-- [ ] 7.2.3 - Ensure all groups in /etc/passwd exist in /etc/group
-- [ ] 7.2.4 - Ensure shadow group is empty
-- [ ] 7.2.6 - Ensure no duplicate GIDs exist
-- [ ] 7.2.7 - Ensure no duplicate user names exist
-- [ ] 7.2.8 - Ensure no duplicate group names exist
-- [ ] 7.2.9 - Ensure local interactive user home directories are configured
-- [ ] 7.2.10 - Ensure local interactive user dot files access is configured
+### System Maintenance (7.x) ✅ ABGESCHLOSSEN
+**File Permissions (7.1.x) - 9 Checks**
+- [x] 7.1.2 - Ensure permissions on /etc/passwd- are configured
+- [x] 7.1.3 - Ensure permissions on /etc/group are configured
+- [x] 7.1.4 - Ensure permissions on /etc/group- are configured
+- [x] 7.1.6 - Ensure permissions on /etc/shadow- are configured
+- [x] 7.1.7 - Ensure permissions on /etc/gshadow are configured
+- [x] 7.1.8 - Ensure permissions on /etc/gshadow- are configured
+- [x] 7.1.9 - Ensure permissions on /etc/shells are configured
+- [x] 7.1.10 - Ensure permissions on /etc/security/opasswd are configured
+- [x] 7.1.12 - Ensure no files or directories without an owner and a group exist
+
+**User/Group Configuration (7.2.x) - 8 Checks**
+- [x] 7.2.1 - Ensure accounts in /etc/passwd use shadowed passwords
+- [x] 7.2.3 - Ensure all groups in /etc/passwd exist in /etc/group
+- [x] 7.2.4 - Ensure shadow group is empty
+- [x] 7.2.6 - Ensure no duplicate GIDs exist
+- [x] 7.2.7 - Ensure no duplicate user names exist
+- [x] 7.2.8 - Ensure no duplicate group names exist
+- [x] 7.2.9 - Ensure local interactive user home directories are configured
+- [x] 7.2.10 - Ensure local interactive user dot files access is configured
 
 ### Logging & Auditing (6.x) - Erweitern
 - [ ] 6.1.x - System Logging (20+ Checks)
@@ -301,8 +304,8 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
 | 6. Logging/Auditing | 4 | 80+ | 5% |
-| 7. System Maintenance | 5 | 20+ | 25% |
-| **TOTAL** | **102** | **400+** | **~25%** |
+| 7. System Maintenance | 22 | 30+ | 73% |
+| **TOTAL** | **119** | **400+** | **~30%** |
 
 ---
 
@@ -322,10 +325,15 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Filesystem Kernel Modules (9 Checks)
 - **Gesamt:** 102 Checks (~25% Coverage)
 
+### v1.4.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- System Maintenance File Permissions (9 Checks)
+- User/Group Configuration Checks (8 Checks)
+- **Gesamt:** 119 Checks (~30% Coverage)
+
 ### v2.0.0 (Geplant)
 - System Logging (6.1.x)
 - PAM & Password Policy (5.3.x & 5.4.x)
-- **Geplant gesamt:** 150+ Checks
+- **Geplant gesamt:** 180+ Checks
 
 ---
 

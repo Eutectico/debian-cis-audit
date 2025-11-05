@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 14 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung
+**Aktueller Status:** 119 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~30% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,36 +277,22 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 14 von 400+ Checks implementiert (~3%)
+**Status:** 119 von 400+ Checks implementiert (~30%)
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (14) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (119) - Klicken zum Anzeigen</summary>
 
-- **6.2** - Configure System Accounting (auditd)
-  - 6.2.1.1 - Ensure auditd is installed
-  - 6.2.1.2 - Ensure auditd service is enabled
-  - 6.2.1.3 - Custom: Check auditd.conf for availability issues
-  - 6.2.4.1 - Ensure audit log files mode is configured
-
-- **7.1** - System File Permissions
-  - 7.1.1 - Ensure permissions on /etc/passwd are configured
-  - 7.1.5 - Ensure permissions on /etc/shadow are configured
-  - 7.1.11 - Ensure world writable files are secured
-
-- **7.2** - Local User and Group Settings
-  - 7.2.2 - Ensure /etc/shadow password fields are not empty
-  - 7.2.5 - Ensure no duplicate UIDs exist
-
-- **2.2** - Service Configuration
-  - 2.2.1 - Ensure Avahi Server is not installed
-  - 2.2.4 - Ensure CUPS is not installed
-  - 2.2.7 - Ensure RPC is not installed
-
-- **3.x** - Network Configuration
-  - 3.1.1 - Ensure IP forwarding is disabled
-  - 3.2.2 - Ensure ICMP redirects are not accepted
+- **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
+- **1.1.2.x** - Filesystem Partitions (26 Checks)
+- **2.1.x** - Server Services (22 Checks)
+- **3.3.x** - Network Kernel Parameters (11 Checks)
+- **5.1.x** - SSH Server Configuration (22 Checks)
+- **6.2.x** - Auditd Configuration (4 Checks)
+- **7.1.x** - System File Permissions (12 Checks)
+- **7.2.x** - Local User and Group Settings (10 Checks)
+- **Weitere** - Legacy Checks (3 Checks)
 
 </details>
 

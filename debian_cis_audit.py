@@ -517,6 +517,213 @@ class FileSystemAuditor(BaseAuditor):
                 message="/etc/shadow permissions are correct"
             ))
 
+    def _check_file_permissions_generic(self, check_id: str, title: str, path: str,
+                                         expected_mode: int, expected_owner: str,
+                                         expected_group: str, severity: Severity,
+                                         use_max_mode: bool = False):
+        """Generic method to check file permissions"""
+        stat_info = self.get_file_stat(path)
+        if not stat_info:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.ERROR,
+                severity=severity,
+                message=f"Cannot stat {path}",
+                remediation=f"Ensure {path} exists with correct permissions"
+            ))
+            return
+
+        issues = []
+        mode = stat.S_IMODE(stat_info.st_mode)
+
+        if use_max_mode:
+            # Check if permissions are too permissive (e.g., shadow files)
+            if mode & ~expected_mode:
+                issues.append(f"Too permissive mode: {oct(mode)}, expected: {oct(expected_mode)} or more restrictive")
+        else:
+            # Exact mode check
+            if mode != expected_mode:
+                issues.append(f"Incorrect mode: {oct(mode)}, expected: {oct(expected_mode)}")
+
+        try:
+            owner = pwd.getpwuid(stat_info.st_uid).pw_name
+            if owner != expected_owner:
+                issues.append(f"Incorrect owner: {owner}, expected: {expected_owner}")
+        except KeyError:
+            issues.append(f"Unknown owner UID: {stat_info.st_uid}")
+
+        try:
+            group = grp.getgrgid(stat_info.st_gid).gr_name
+            if group != expected_group:
+                issues.append(f"Incorrect group: {group}, expected: {expected_group}")
+        except KeyError:
+            issues.append(f"Unknown group GID: {stat_info.st_gid}")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=severity,
+                message=f"Incorrect permissions on {path}",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation=f"chown {expected_owner}:{expected_group} {path} && chmod {oct(expected_mode)[2:]} {path}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=severity,
+                message=f"{path} permissions are correct"
+            ))
+
+    def check_passwd_backup_permissions(self):
+        """Check /etc/passwd- permissions (7.1.2)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.2",
+            title="Ensure permissions on /etc/passwd- are configured",
+            path="/etc/passwd-",
+            expected_mode=0o644,
+            expected_owner="root",
+            expected_group="root",
+            severity=Severity.HIGH
+        )
+
+    def check_group_permissions(self):
+        """Check /etc/group permissions (7.1.3)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.3",
+            title="Ensure permissions on /etc/group are configured",
+            path="/etc/group",
+            expected_mode=0o644,
+            expected_owner="root",
+            expected_group="root",
+            severity=Severity.HIGH
+        )
+
+    def check_group_backup_permissions(self):
+        """Check /etc/group- permissions (7.1.4)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.4",
+            title="Ensure permissions on /etc/group- are configured",
+            path="/etc/group-",
+            expected_mode=0o644,
+            expected_owner="root",
+            expected_group="root",
+            severity=Severity.HIGH
+        )
+
+    def check_shadow_backup_permissions(self):
+        """Check /etc/shadow- permissions (7.1.6)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.6",
+            title="Ensure permissions on /etc/shadow- are configured",
+            path="/etc/shadow-",
+            expected_mode=0o640,
+            expected_owner="root",
+            expected_group="shadow",
+            severity=Severity.CRITICAL,
+            use_max_mode=True
+        )
+
+    def check_gshadow_permissions(self):
+        """Check /etc/gshadow permissions (7.1.7)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.7",
+            title="Ensure permissions on /etc/gshadow are configured",
+            path="/etc/gshadow",
+            expected_mode=0o640,
+            expected_owner="root",
+            expected_group="shadow",
+            severity=Severity.CRITICAL,
+            use_max_mode=True
+        )
+
+    def check_gshadow_backup_permissions(self):
+        """Check /etc/gshadow- permissions (7.1.8)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.8",
+            title="Ensure permissions on /etc/gshadow- are configured",
+            path="/etc/gshadow-",
+            expected_mode=0o640,
+            expected_owner="root",
+            expected_group="shadow",
+            severity=Severity.CRITICAL,
+            use_max_mode=True
+        )
+
+    def check_shells_permissions(self):
+        """Check /etc/shells permissions (7.1.9)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.9",
+            title="Ensure permissions on /etc/shells are configured",
+            path="/etc/shells",
+            expected_mode=0o644,
+            expected_owner="root",
+            expected_group="root",
+            severity=Severity.MEDIUM
+        )
+
+    def check_opasswd_permissions(self):
+        """Check /etc/security/opasswd permissions (7.1.10)"""
+        self._check_file_permissions_generic(
+            check_id="7.1.10",
+            title="Ensure permissions on /etc/security/opasswd are configured",
+            path="/etc/security/opasswd",
+            expected_mode=0o600,
+            expected_owner="root",
+            expected_group="root",
+            severity=Severity.HIGH,
+            use_max_mode=True
+        )
+
+    def check_unowned_files(self):
+        """Check for files without owner or group (7.1.12)"""
+        returncode, stdout, stderr = self.run_command([
+            'find', '/', '-xdev', '(', '-nouser', '-o', '-nogroup', ')',
+            '-type', 'f', '-print'
+        ], timeout=60000)
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="7.1.12",
+                title="Ensure no files or directories without an owner and a group exist",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot check for unowned files",
+                details=stderr
+            ))
+            return
+
+        unowned_files = stdout.strip()
+        if unowned_files:
+            # Limit output to avoid overwhelming report
+            files_list = unowned_files.split('\n')
+            files_count = len(files_list)
+            display_files = '\n'.join(files_list[:20])
+            if files_count > 20:
+                display_files += f"\n... and {files_count - 20} more files"
+
+            self.reporter.add_result(AuditResult(
+                check_id="7.1.12",
+                title="Ensure no files or directories without an owner and a group exist",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Files without owner or group found ({files_count} files)",
+                details=display_files,
+                remediation="Review and assign proper ownership to these files"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.1.12",
+                title="Ensure no files or directories without an owner and a group exist",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="No files without owner or group found"
+            ))
+
     def check_world_writable_files(self):
         """Check for world-writable files"""
         # This is a simplified check - full check would scan entire filesystem
@@ -558,8 +765,17 @@ class FileSystemAuditor(BaseAuditor):
     def run_all_checks(self):
         """Run all filesystem checks"""
         self.check_passwd_permissions()
+        self.check_passwd_backup_permissions()
+        self.check_group_permissions()
+        self.check_group_backup_permissions()
         self.check_shadow_permissions()
+        self.check_shadow_backup_permissions()
+        self.check_gshadow_permissions()
+        self.check_gshadow_backup_permissions()
+        self.check_shells_permissions()
+        self.check_opasswd_permissions()
         self.check_world_writable_files()
+        self.check_unowned_files()
 
 
 class ServiceAuditor(BaseAuditor):
@@ -2141,10 +2357,396 @@ class UserAuditor(BaseAuditor):
                 message="No duplicate UIDs found"
             ))
 
+    def check_shadowed_passwords(self):
+        """Check that all accounts use shadowed passwords (7.2.1)"""
+        passwd_content = self.read_file('/etc/passwd')
+        if not passwd_content:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.1",
+                title="Ensure accounts in /etc/passwd use shadowed passwords",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message="Cannot read /etc/passwd"
+            ))
+            return
+
+        unshadowed_accounts = []
+        for line in passwd_content.split('\n'):
+            if line.strip() and not line.startswith('#'):
+                parts = line.split(':')
+                if len(parts) >= 2:
+                    username = parts[0]
+                    password_field = parts[1]
+                    # Check if password is not 'x' (shadowed)
+                    if password_field != 'x':
+                        unshadowed_accounts.append(f"{username} (password field: '{password_field}')")
+
+        if unshadowed_accounts:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.1",
+                title="Ensure accounts in /etc/passwd use shadowed passwords",
+                status=Status.FAIL,
+                severity=Severity.CRITICAL,
+                message="Accounts not using shadowed passwords found",
+                details="\n".join(f"  - {acc}" for acc in unshadowed_accounts),
+                remediation="Run 'pwconv' to convert passwords to shadow format"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.1",
+                title="Ensure accounts in /etc/passwd use shadowed passwords",
+                status=Status.PASS,
+                severity=Severity.CRITICAL,
+                message="All accounts use shadowed passwords"
+            ))
+
+    def check_groups_exist(self):
+        """Check that all groups in /etc/passwd exist in /etc/group (7.2.3)"""
+        passwd_content = self.read_file('/etc/passwd')
+        if not passwd_content:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.3",
+                title="Ensure all groups in /etc/passwd exist in /etc/group",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot read /etc/passwd"
+            ))
+            return
+
+        # Get all GIDs from /etc/passwd
+        passwd_gids = set()
+        for line in passwd_content.split('\n'):
+            if line.strip() and not line.startswith('#'):
+                parts = line.split(':')
+                if len(parts) >= 4:
+                    try:
+                        passwd_gids.add(int(parts[3]))
+                    except ValueError:
+                        pass
+
+        # Check if all GIDs exist in the group database
+        missing_groups = []
+        for gid in passwd_gids:
+            try:
+                grp.getgrgid(gid)
+            except KeyError:
+                missing_groups.append(str(gid))
+
+        if missing_groups:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.3",
+                title="Ensure all groups in /etc/passwd exist in /etc/group",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Groups referenced in /etc/passwd not found in /etc/group",
+                details=f"Missing GIDs: {', '.join(missing_groups)}",
+                remediation="Create missing groups or fix GIDs in /etc/passwd"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.3",
+                title="Ensure all groups in /etc/passwd exist in /etc/group",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="All groups in /etc/passwd exist in /etc/group"
+            ))
+
+    def check_shadow_group_empty(self):
+        """Check that shadow group is empty (7.2.4)"""
+        try:
+            shadow_group = grp.getgrnam('shadow')
+            if shadow_group.gr_mem:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.4",
+                    title="Ensure shadow group is empty",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Shadow group has members",
+                    details=f"Members: {', '.join(shadow_group.gr_mem)}",
+                    remediation="Remove all users from the shadow group"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.4",
+                    title="Ensure shadow group is empty",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Shadow group is empty"
+                ))
+        except KeyError:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.4",
+                title="Ensure shadow group is empty",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Shadow group does not exist"
+            ))
+
+    def check_duplicate_gids(self):
+        """Check for duplicate GIDs (7.2.6)"""
+        gid_map = {}
+        duplicates = []
+
+        try:
+            for group in grp.getgrall():
+                if group.gr_gid in gid_map:
+                    duplicates.append(f"GID {group.gr_gid}: {gid_map[group.gr_gid]} and {group.gr_name}")
+                else:
+                    gid_map[group.gr_gid] = group.gr_name
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.6",
+                title="Ensure no duplicate GIDs exist",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking GIDs: {str(e)}"
+            ))
+            return
+
+        if duplicates:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.6",
+                title="Ensure no duplicate GIDs exist",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Duplicate GIDs found",
+                details="\n".join(f"  - {dup}" for dup in duplicates),
+                remediation="Assign unique GIDs to all groups"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.6",
+                title="Ensure no duplicate GIDs exist",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="No duplicate GIDs found"
+            ))
+
+    def check_duplicate_usernames(self):
+        """Check for duplicate usernames (7.2.7)"""
+        username_map = {}
+        duplicates = []
+
+        passwd_content = self.read_file('/etc/passwd')
+        if not passwd_content:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.7",
+                title="Ensure no duplicate user names exist",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot read /etc/passwd"
+            ))
+            return
+
+        for line in passwd_content.split('\n'):
+            if line.strip() and not line.startswith('#'):
+                parts = line.split(':')
+                if len(parts) >= 1:
+                    username = parts[0]
+                    if username in username_map:
+                        duplicates.append(f"Username: {username}")
+                    else:
+                        username_map[username] = True
+
+        if duplicates:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.7",
+                title="Ensure no duplicate user names exist",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Duplicate usernames found",
+                details="\n".join(f"  - {dup}" for dup in duplicates),
+                remediation="Ensure all usernames are unique"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.7",
+                title="Ensure no duplicate user names exist",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="No duplicate usernames found"
+            ))
+
+    def check_duplicate_groupnames(self):
+        """Check for duplicate group names (7.2.8)"""
+        groupname_map = {}
+        duplicates = []
+
+        group_content = self.read_file('/etc/group')
+        if not group_content:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.8",
+                title="Ensure no duplicate group names exist",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot read /etc/group"
+            ))
+            return
+
+        for line in group_content.split('\n'):
+            if line.strip() and not line.startswith('#'):
+                parts = line.split(':')
+                if len(parts) >= 1:
+                    groupname = parts[0]
+                    if groupname in groupname_map:
+                        duplicates.append(f"Group name: {groupname}")
+                    else:
+                        groupname_map[groupname] = True
+
+        if duplicates:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.8",
+                title="Ensure no duplicate group names exist",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Duplicate group names found",
+                details="\n".join(f"  - {dup}" for dup in duplicates),
+                remediation="Ensure all group names are unique"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.8",
+                title="Ensure no duplicate group names exist",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="No duplicate group names found"
+            ))
+
+    def check_user_home_directories(self):
+        """Check local interactive user home directories (7.2.9)"""
+        issues = []
+
+        try:
+            for user in pwd.getpwall():
+                # Check only regular users (UID >= 1000)
+                if user.pw_uid >= 1000 and user.pw_uid != 65534:  # Skip nobody
+                    home_dir = user.pw_dir
+
+                    # Check if home directory exists
+                    if not os.path.exists(home_dir):
+                        issues.append(f"User {user.pw_name}: home directory {home_dir} does not exist")
+                        continue
+
+                    # Check ownership
+                    try:
+                        stat_info = os.stat(home_dir)
+                        if stat_info.st_uid != user.pw_uid:
+                            owner_name = pwd.getpwuid(stat_info.st_uid).pw_name
+                            issues.append(f"User {user.pw_name}: home directory {home_dir} owned by {owner_name} (UID {stat_info.st_uid})")
+                    except (OSError, KeyError) as e:
+                        issues.append(f"User {user.pw_name}: cannot stat {home_dir} ({str(e)})")
+
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.9",
+                title="Ensure local interactive user home directories are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking home directories: {str(e)}"
+            ))
+            return
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.9",
+                title="Ensure local interactive user home directories are configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="User home directory issues found",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Ensure all users have valid home directories with proper ownership"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.9",
+                title="Ensure local interactive user home directories are configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="All user home directories are properly configured"
+            ))
+
+    def check_user_dot_files(self):
+        """Check local interactive user dot files access (7.2.10)"""
+        issues = []
+
+        try:
+            for user in pwd.getpwall():
+                # Check only regular users (UID >= 1000)
+                if user.pw_uid >= 1000 and user.pw_uid != 65534:  # Skip nobody
+                    home_dir = user.pw_dir
+
+                    # Check if home directory exists
+                    if not os.path.exists(home_dir):
+                        continue
+
+                    # Check dot files in home directory
+                    try:
+                        for entry in os.listdir(home_dir):
+                            if entry.startswith('.') and entry not in ['.', '..']:
+                                file_path = os.path.join(home_dir, entry)
+                                try:
+                                    stat_info = os.stat(file_path)
+                                    mode = stat.S_IMODE(stat_info.st_mode)
+
+                                    # Check if group-writable or world-writable
+                                    if mode & 0o022:
+                                        issues.append(f"User {user.pw_name}: {file_path} is group or world writable ({oct(mode)})")
+
+                                    # Check ownership
+                                    if stat_info.st_uid != user.pw_uid:
+                                        owner_name = pwd.getpwuid(stat_info.st_uid).pw_name
+                                        issues.append(f"User {user.pw_name}: {file_path} owned by {owner_name}")
+                                except (OSError, KeyError):
+                                    pass
+                    except OSError:
+                        pass
+
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.10",
+                title="Ensure local interactive user dot files access is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking dot files: {str(e)}"
+            ))
+            return
+
+        if issues:
+            # Limit output to first 20 issues
+            display_issues = issues[:20]
+            if len(issues) > 20:
+                display_issues.append(f"... and {len(issues) - 20} more issues")
+
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.10",
+                title="Ensure local interactive user dot files access is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"User dot file issues found ({len(issues)} issues)",
+                details="\n".join(f"  - {issue}" for issue in display_issues),
+                remediation="Ensure dot files are not group or world writable and owned by the user"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.10",
+                title="Ensure local interactive user dot files access is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="All user dot files are properly configured"
+            ))
+
     def run_all_checks(self):
         """Run all user/group checks"""
+        self.check_shadowed_passwords()
         self.check_empty_passwords()
+        self.check_groups_exist()
+        self.check_shadow_group_empty()
         self.check_duplicate_uids()
+        self.check_duplicate_gids()
+        self.check_duplicate_usernames()
+        self.check_duplicate_groupnames()
+        self.check_user_home_directories()
+        self.check_user_dot_files()
 
 
 class DebianCISAudit:
