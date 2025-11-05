@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 134 (~33%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 137 (~34%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅
 
 ---
 
@@ -239,9 +239,12 @@
   - [x] 6.2.2.2 - Ensure audit logs are not automatically deleted
   - [x] 6.2.2.3 - Ensure system is disabled when audit logs are full (space_left_action)
   - [x] 6.2.2.4 - Ensure admin_space_left_action is configured
+- [x] 6.3.x - Integrity Checking (3 Checks) ✅ ABGESCHLOSSEN
+  - [x] 6.3.1 - Ensure AIDE is installed
+  - [x] 6.3.2 - Ensure filesystem integrity is regularly checked
+  - [x] 6.3.3 - Ensure cryptographic mechanisms are used to protect audit tools
 - [ ] 6.2.3.x - Audit Rules (21 Checks)
 - [ ] 6.2.4.x - Audit File Access (erweitern, 9 weitere Checks)
-- [ ] 6.3.x - Integrity Checking (3 Checks)
 
 ### PAM & Password Policy (5.3.x & 5.4.x)
 - [ ] 5.3.x - PAM Configuration (40+ Checks)
@@ -323,9 +326,9 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
-| 6. Logging/Auditing | 19 | 80+ | 24% |
+| 6. Logging/Auditing | 22 | 80+ | 28% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **134** | **400+** | **~33%** |
+| **TOTAL** | **137** | **400+** | **~34%** |
 
 ---
 
@@ -359,8 +362,13 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Audit Data Retention (6.2.2.x - 4 Checks)
 - **Gesamt:** 134 Checks (~33% Coverage)
 
+### v1.7.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- Integrity Checking (6.3.x - 3 Checks)
+- **Gesamt:** 137 Checks (~34% Coverage)
+
 ### v2.0.0 (Geplant)
 - PAM & Password Policy (5.3.x & 5.4.x)
+- Audit File Access (6.2.4.x)
 - Audit Rules (6.2.3.x)
 - **Geplant gesamt:** 180+ Checks
 

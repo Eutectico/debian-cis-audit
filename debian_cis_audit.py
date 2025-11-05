@@ -1085,6 +1085,207 @@ class SystemLoggingAuditor(BaseAuditor):
         self.check_rsyslog_remote_messages()
 
 
+class IntegrityAuditor(BaseAuditor):
+    """Auditor for filesystem integrity checks (AIDE)"""
+
+    def check_aide_installed(self):
+        """6.3.1 - Ensure AIDE is installed"""
+        # Check if either aide or aide-common is installed
+        aide_installed = False
+        package_name = None
+
+        # Try aide first
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'aide'])
+        if returncode == 0:
+            aide_installed = True
+            package_name = 'aide'
+        else:
+            # Try aide-common
+            returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'aide-common'])
+            if returncode == 0:
+                aide_installed = True
+                package_name = 'aide-common'
+
+        if aide_installed:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.1",
+                title="Ensure AIDE is installed",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"AIDE package is installed ({package_name})"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.1",
+                title="Ensure AIDE is installed",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AIDE is not installed",
+                details="AIDE (Advanced Intrusion Detection Environment) is required for file integrity monitoring",
+                remediation="apt install aide aide-common && aideinit"
+            ))
+
+    def check_filesystem_integrity_checked(self):
+        """6.3.2 - Ensure filesystem integrity is regularly checked"""
+        # Check if AIDE is installed first
+        aide_installed = False
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'aide'])
+        if returncode == 0:
+            aide_installed = True
+        else:
+            returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'aide-common'])
+            if returncode == 0:
+                aide_installed = True
+
+        if not aide_installed:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.2",
+                title="Ensure filesystem integrity is regularly checked",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AIDE is not installed, cannot check for scheduled integrity checks",
+                remediation="First install AIDE: apt install aide aide-common"
+            ))
+            return
+
+        # Check for cron job or systemd timer
+        cron_configured = False
+        timer_configured = False
+
+        # Check cron directories
+        cron_paths = [
+            '/etc/cron.daily/aide',
+            '/etc/cron.weekly/aide',
+            '/etc/cron.monthly/aide',
+            '/etc/crontab',
+            '/etc/cron.d/'
+        ]
+
+        for path in cron_paths:
+            if self.file_exists(path):
+                if path.endswith('/'):
+                    # It's a directory, check for aide-related files
+                    returncode, stdout, stderr = self.run_command(['ls', path])
+                    if 'aide' in stdout.lower():
+                        cron_configured = True
+                        break
+                else:
+                    # It's a file, check its contents
+                    content = self.read_file(path)
+                    if content and 'aide' in content.lower():
+                        cron_configured = True
+                        break
+
+        # Check systemd timer
+        returncode, stdout, stderr = self.run_command(['systemctl', 'is-enabled', 'aide.timer'])
+        if returncode == 0 and stdout.strip() == 'enabled':
+            timer_configured = True
+
+        if cron_configured or timer_configured:
+            method = "cron" if cron_configured else "systemd timer"
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.2",
+                title="Ensure filesystem integrity is regularly checked",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"AIDE filesystem integrity checks are scheduled via {method}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.2",
+                title="Ensure filesystem integrity is regularly checked",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AIDE is installed but no regular integrity check is configured",
+                details="Filesystem integrity should be checked regularly (daily or weekly recommended)",
+                remediation="Configure a cron job or systemd timer to run 'aide --check' regularly"
+            ))
+
+    def check_audit_tools_integrity(self):
+        """6.3.3 - Ensure cryptographic mechanisms are used to protect the integrity of audit tools"""
+        # This check verifies that AIDE is configured to monitor audit tools
+        aide_conf_paths = ['/etc/aide/aide.conf', '/etc/aide.conf']
+        aide_conf_path = None
+
+        for path in aide_conf_paths:
+            if self.file_exists(path):
+                aide_conf_path = path
+                break
+
+        if not aide_conf_path:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.3",
+                title="Ensure cryptographic mechanisms are used to protect audit tools",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AIDE configuration file not found",
+                details="Cannot verify if audit tools are monitored",
+                remediation="Install and configure AIDE: apt install aide aide-common && aideinit"
+            ))
+            return
+
+        content = self.read_file(aide_conf_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.3",
+                title="Ensure cryptographic mechanisms are used to protect audit tools",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Cannot read AIDE configuration file: {aide_conf_path}"
+            ))
+            return
+
+        # Check if key audit tools are monitored
+        audit_tools = [
+            '/sbin/auditctl',
+            '/sbin/aureport',
+            '/sbin/ausearch',
+            '/sbin/autrace',
+            '/sbin/auditd',
+            '/sbin/augenrules'
+        ]
+
+        monitored_tools = []
+        missing_tools = []
+
+        for tool in audit_tools:
+            # Check if the tool path is mentioned in the config
+            # AIDE config can use regex patterns like /sbin/ or specific paths
+            if tool in content or '/sbin/' in content or '/sbin' in content:
+                monitored_tools.append(tool)
+            else:
+                missing_tools.append(tool)
+
+        # Also check if /sbin is generally monitored
+        sbin_monitored = '/sbin' in content
+
+        if sbin_monitored or len(monitored_tools) >= 3:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.3",
+                title="Ensure cryptographic mechanisms are used to protect audit tools",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="AIDE is configured to monitor audit tools",
+                details=f"Configuration file: {aide_conf_path}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.3.3",
+                title="Ensure cryptographic mechanisms are used to protect audit tools",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AIDE is not properly configured to monitor audit tools",
+                details=f"Audit tools should be monitored in {aide_conf_path}",
+                remediation=f"Add audit tool paths to {aide_conf_path}, e.g.: /sbin/auditctl p+i+n+u+g+s+b+acl+xattrs+sha512"
+            ))
+
+    def run_all_checks(self):
+        """Run all integrity checking checks"""
+        self.check_aide_installed()
+        self.check_filesystem_integrity_checked()
+        self.check_audit_tools_integrity()
+
+
 class FileSystemAuditor(BaseAuditor):
     """Auditor for filesystem permissions and configurations"""
 
@@ -3451,6 +3652,10 @@ class DebianCISAudit:
         print("[*] Running System Logging Checks...")
         logging_auditor = SystemLoggingAuditor(self.reporter)
         logging_auditor.run_all_checks()
+
+        print("[*] Running Integrity Checks...")
+        integrity_auditor = IntegrityAuditor(self.reporter)
+        integrity_auditor.run_all_checks()
 
         print("[*] Running Filesystem Checks...")
         filesystem_auditor = FileSystemAuditor(self.reporter)
