@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 130 (~32%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 134 (~33%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅
 
 ---
 
@@ -234,7 +234,11 @@
 - [x] 6.1.2.6 - Ensure remote rsyslog messages are only accepted on designated log hosts
 
 ### Logging & Auditing (6.x) - Erweitern
-- [ ] 6.2.2.x - Audit Data Retention (4 Checks)
+- [x] 6.2.2.x - Audit Data Retention (4 Checks) ✅ ABGESCHLOSSEN
+  - [x] 6.2.2.1 - Ensure audit log file size is configured
+  - [x] 6.2.2.2 - Ensure audit logs are not automatically deleted
+  - [x] 6.2.2.3 - Ensure system is disabled when audit logs are full (space_left_action)
+  - [x] 6.2.2.4 - Ensure admin_space_left_action is configured
 - [ ] 6.2.3.x - Audit Rules (21 Checks)
 - [ ] 6.2.4.x - Audit File Access (erweitern, 9 weitere Checks)
 - [ ] 6.3.x - Integrity Checking (3 Checks)
@@ -319,9 +323,9 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
-| 6. Logging/Auditing | 15 | 80+ | 19% |
+| 6. Logging/Auditing | 19 | 80+ | 24% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **130** | **400+** | **~32%** |
+| **TOTAL** | **134** | **400+** | **~33%** |
 
 ---
 
@@ -351,9 +355,13 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - System Logging - rsyslog (6 Checks)
 - **Gesamt:** 130 Checks (~32% Coverage)
 
+### v1.6.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- Audit Data Retention (6.2.2.x - 4 Checks)
+- **Gesamt:** 134 Checks (~33% Coverage)
+
 ### v2.0.0 (Geplant)
 - PAM & Password Policy (5.3.x & 5.4.x)
-- Audit Data Retention (6.2.2.x)
+- Audit Rules (6.2.3.x)
 - **Geplant gesamt:** 180+ Checks
 
 ---
