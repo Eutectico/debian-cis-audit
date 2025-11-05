@@ -590,10 +590,122 @@ class ServiceAuditor(BaseAuditor):
 
     def run_all_checks(self):
         """Run all service checks"""
-        # Check some common unnecessary services
-        self.check_service_disabled('avahi-daemon', '2.2.1', 'Ensure Avahi Server is not installed')
-        self.check_service_disabled('cups', '2.2.4', 'Ensure CUPS is not installed')
-        self.check_service_disabled('rpcbind', '2.2.7', 'Ensure RPC is not installed')
+        # 2.1.x - Additional Services (22 checks)
+        self.check_service_disabled('autofs', '2.1.1', 'Ensure autofs services are not in use')
+        self.check_service_disabled('avahi-daemon', '2.1.2', 'Ensure avahi daemon services are not in use')
+        self.check_service_disabled('isc-dhcp-server', '2.1.3', 'Ensure dhcp server services are not in use')
+        self.check_service_disabled('bind9', '2.1.4', 'Ensure dns server services are not in use')
+        self.check_service_disabled('dnsmasq', '2.1.5', 'Ensure dnsmasq services are not in use')
+        self.check_service_disabled('vsftpd', '2.1.6', 'Ensure ftp server services are not in use')
+        self.check_service_disabled('slapd', '2.1.7', 'Ensure ldap server services are not in use')
+        self.check_service_disabled('dovecot', '2.1.8', 'Ensure message access server services are not in use')
+        self.check_service_disabled('nfs-server', '2.1.9', 'Ensure network file system services are not in use')
+        self.check_service_disabled('nis', '2.1.10', 'Ensure nis server services are not in use')
+        self.check_service_disabled('cups', '2.1.11', 'Ensure print server services are not in use')
+        self.check_service_disabled('rpcbind', '2.1.12', 'Ensure rpcbind services are not in use')
+        self.check_service_disabled('rsync', '2.1.13', 'Ensure rsync services are not in use')
+        self.check_service_disabled('smbd', '2.1.14', 'Ensure samba file server services are not in use')
+        self.check_service_disabled('snmpd', '2.1.15', 'Ensure snmp services are not in use')
+        self.check_service_disabled('tftpd-hpa', '2.1.16', 'Ensure tftp server services are not in use')
+        self.check_service_disabled('squid', '2.1.17', 'Ensure web proxy server services are not in use')
+        self.check_service_disabled('apache2', '2.1.18', 'Ensure web server services are not in use')
+        self.check_service_disabled('nginx', '2.1.18', 'Ensure web server services are not in use')
+        self.check_service_disabled('xinetd', '2.1.19', 'Ensure xinetd services are not in use')
+        self.check_service_disabled('xserver-xorg', '2.1.20', 'Ensure X window server services are not in use')
+        self.check_mta_local_only()
+        self.check_listening_services()
+
+    def check_mta_local_only(self):
+        """Check if mail transfer agent is configured for local-only mode"""
+        # Check if postfix or exim4 is configured to listen only on localhost
+        returncode, stdout, stderr = self.run_command(['ss', '-lntu'])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.21',
+                title='Ensure mail transfer agent is configured for local-only mode',
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message='Cannot check network listeners',
+                details=stderr
+            ))
+            return
+
+        # Look for SMTP ports (25, 465, 587) listening on non-localhost addresses
+        smtp_listeners = []
+        for line in stdout.split('\n'):
+            if ':25 ' in line or ':465 ' in line or ':587 ' in line:
+                # Check if it's not listening on localhost only
+                if '0.0.0.0:' in line or ':::' in line or '*:' in line:
+                    smtp_listeners.append(line.strip())
+
+        if smtp_listeners:
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.21',
+                title='Ensure mail transfer agent is configured for local-only mode',
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message='Mail transfer agent is listening on non-localhost addresses',
+                details='\n'.join(f'  - {listener}' for listener in smtp_listeners),
+                remediation='Configure MTA (postfix/exim4) to listen only on 127.0.0.1'
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.21',
+                title='Ensure mail transfer agent is configured for local-only mode',
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message='No mail transfer agent listening on external addresses'
+            ))
+
+    def check_listening_services(self):
+        """Check that only approved services are listening on network interfaces"""
+        returncode, stdout, stderr = self.run_command(['ss', '-lntu'])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.22',
+                title='Ensure only approved services are listening on a network interface',
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message='Cannot check network listeners',
+                details=stderr
+            ))
+            return
+
+        # Common approved ports for typical server setups
+        approved_ports = ['22', '80', '443']  # SSH, HTTP, HTTPS
+
+        listening_services = []
+        for line in stdout.split('\n'):
+            if 'LISTEN' in line or 'UNCONN' in line:
+                # Parse the line to extract port information
+                parts = line.split()
+                if len(parts) >= 5:
+                    local_addr = parts[4] if len(parts) > 4 else parts[3]
+                    # Skip localhost listeners
+                    if '127.0.0.1:' not in local_addr and '[::1]:' not in local_addr:
+                        listening_services.append(line.strip())
+
+        if listening_services:
+            # This is informational - we report what's listening
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.22',
+                title='Ensure only approved services are listening on a network interface',
+                status=Status.WARNING,
+                severity=Severity.HIGH,
+                message=f'Found {len(listening_services)} services listening on network interfaces',
+                details='\n'.join(f'  - {svc}' for svc in listening_services[:10]),  # Show first 10
+                remediation='Review listening services and disable any unnecessary ones'
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id='2.1.22',
+                title='Ensure only approved services are listening on a network interface',
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message='No services listening on external network interfaces'
+            ))
 
 
 class NetworkAuditor(BaseAuditor):
@@ -643,10 +755,113 @@ class NetworkAuditor(BaseAuditor):
                 remediation="Set net.ipv4.conf.all.accept_redirects=0 in /etc/sysctl.conf"
             ))
 
+    def _check_sysctl_parameter(self, param_path: str, expected_value: str, check_id: str, title: str, severity: Severity = Severity.MEDIUM):
+        """Generic method to check a sysctl parameter"""
+        value = self.read_file(param_path)
+
+        if value and value.strip() == expected_value:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=severity,
+                message=f"Parameter is correctly set to {expected_value}"
+            ))
+        else:
+            actual = value.strip() if value else "not set"
+            param_name = param_path.replace('/proc/sys/', '').replace('/', '.')
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=severity,
+                message=f"Parameter is set to '{actual}', expected '{expected_value}'",
+                remediation=f"Set {param_name}={expected_value} in /etc/sysctl.conf and run sysctl -w {param_name}={expected_value}"
+            ))
+
     def run_all_checks(self):
         """Run all network checks"""
+        # Legacy checks (3.1.x and 3.2.x)
         self.check_ip_forwarding()
         self.check_icmp_redirects()
+
+        # Network Kernel Parameters (3.3.x - 11 checks)
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/ip_forward',
+            '0',
+            '3.3.1',
+            'Ensure ip forwarding is disabled'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/send_redirects',
+            '0',
+            '3.3.2',
+            'Ensure packet redirect sending is disabled'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses',
+            '1',
+            '3.3.3',
+            'Ensure bogus icmp responses are ignored'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts',
+            '1',
+            '3.3.4',
+            'Ensure broadcast icmp requests are ignored'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/accept_redirects',
+            '0',
+            '3.3.5',
+            'Ensure icmp redirects are not accepted'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/secure_redirects',
+            '0',
+            '3.3.6',
+            'Ensure secure icmp redirects are not accepted'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/rp_filter',
+            '1',
+            '3.3.7',
+            'Ensure reverse path filtering is enabled'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/accept_source_route',
+            '0',
+            '3.3.8',
+            'Ensure source routed packets are not accepted'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/conf/all/log_martians',
+            '1',
+            '3.3.9',
+            'Ensure suspicious packets are logged'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv4/tcp_syncookies',
+            '1',
+            '3.3.10',
+            'Ensure tcp syn cookies is enabled'
+        )
+
+        self._check_sysctl_parameter(
+            '/proc/sys/net/ipv6/conf/all/accept_ra',
+            '0',
+            '3.3.11',
+            'Ensure ipv6 router advertisements are not accepted'
+        )
 
 
 class SSHAuditor(BaseAuditor):

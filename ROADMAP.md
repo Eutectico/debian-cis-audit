@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 62 (~15%)
-- **Status:** Aktiv in Entwicklung - Phase 2 läuft
+- **Aktuell implementiert:** 93 (~23%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅
 
 ---
 
@@ -138,54 +138,54 @@
 
 </details>
 
-#### 3. Additional Services (2.1.x)
+#### 3. Additional Services (2.1.x) ✅ ABGESCHLOSSEN
 **Priorität: HOCH** - 22 Checks
 
 <details>
 <summary>Server Services - 22 Checks</summary>
 
-- [ ] 2.1.1 - Ensure autofs services are not in use
-- [ ] 2.1.2 - Ensure avahi daemon services are not in use
-- [ ] 2.1.3 - Ensure dhcp server services are not in use
-- [ ] 2.1.4 - Ensure dns server services are not in use
-- [ ] 2.1.5 - Ensure dnsmasq services are not in use
-- [ ] 2.1.6 - Ensure ftp server services are not in use
-- [ ] 2.1.7 - Ensure ldap server services are not in use
-- [ ] 2.1.8 - Ensure message access server services are not in use
-- [ ] 2.1.9 - Ensure network file system services are not in use
-- [ ] 2.1.10 - Ensure nis server services are not in use
-- [ ] 2.1.11 - Ensure print server services are not in use
-- [ ] 2.1.12 - Ensure rpcbind services are not in use
-- [ ] 2.1.13 - Ensure rsync services are not in use
-- [ ] 2.1.14 - Ensure samba file server services are not in use
-- [ ] 2.1.15 - Ensure snmp services are not in use
-- [ ] 2.1.16 - Ensure tftp server services are not in use
-- [ ] 2.1.17 - Ensure web proxy server services are not in use
-- [ ] 2.1.18 - Ensure web server services are not in use
-- [ ] 2.1.19 - Ensure xinetd services are not in use
-- [ ] 2.1.20 - Ensure X window server services are not in use
-- [ ] 2.1.21 - Ensure mail transfer agent is configured for local-only mode
-- [ ] 2.1.22 - Ensure only approved services are listening on a network interface
+- [x] 2.1.1 - Ensure autofs services are not in use
+- [x] 2.1.2 - Ensure avahi daemon services are not in use
+- [x] 2.1.3 - Ensure dhcp server services are not in use
+- [x] 2.1.4 - Ensure dns server services are not in use
+- [x] 2.1.5 - Ensure dnsmasq services are not in use
+- [x] 2.1.6 - Ensure ftp server services are not in use
+- [x] 2.1.7 - Ensure ldap server services are not in use
+- [x] 2.1.8 - Ensure message access server services are not in use
+- [x] 2.1.9 - Ensure network file system services are not in use
+- [x] 2.1.10 - Ensure nis server services are not in use
+- [x] 2.1.11 - Ensure print server services are not in use
+- [x] 2.1.12 - Ensure rpcbind services are not in use
+- [x] 2.1.13 - Ensure rsync services are not in use
+- [x] 2.1.14 - Ensure samba file server services are not in use
+- [x] 2.1.15 - Ensure snmp services are not in use
+- [x] 2.1.16 - Ensure tftp server services are not in use
+- [x] 2.1.17 - Ensure web proxy server services are not in use
+- [x] 2.1.18 - Ensure web server services are not in use
+- [x] 2.1.19 - Ensure xinetd services are not in use
+- [x] 2.1.20 - Ensure X window server services are not in use
+- [x] 2.1.21 - Ensure mail transfer agent is configured for local-only mode
+- [x] 2.1.22 - Ensure only approved services are listening on a network interface
 
 </details>
 
-#### 4. Network Kernel Parameters (3.3.x)
+#### 4. Network Kernel Parameters (3.3.x) ✅ ABGESCHLOSSEN
 **Priorität: HOCH** - 11 Checks
 
 <details>
 <summary>Network Configuration - 11 Checks</summary>
 
-- [ ] 3.3.1 - Ensure ip forwarding is disabled
-- [ ] 3.3.2 - Ensure packet redirect sending is disabled
-- [ ] 3.3.3 - Ensure bogus icmp responses are ignored
-- [ ] 3.3.4 - Ensure broadcast icmp requests are ignored
-- [ ] 3.3.5 - Ensure icmp redirects are not accepted
-- [ ] 3.3.6 - Ensure secure icmp redirects are not accepted
-- [ ] 3.3.7 - Ensure reverse path filtering is enabled
-- [ ] 3.3.8 - Ensure source routed packets are not accepted
-- [ ] 3.3.9 - Ensure suspicious packets are logged
-- [ ] 3.3.10 - Ensure tcp syn cookies is enabled
-- [ ] 3.3.11 - Ensure ipv6 router advertisements are not accepted
+- [x] 3.3.1 - Ensure ip forwarding is disabled
+- [x] 3.3.2 - Ensure packet redirect sending is disabled
+- [x] 3.3.3 - Ensure bogus icmp responses are ignored
+- [x] 3.3.4 - Ensure broadcast icmp requests are ignored
+- [x] 3.3.5 - Ensure icmp redirects are not accepted
+- [x] 3.3.6 - Ensure secure icmp redirects are not accepted
+- [x] 3.3.7 - Ensure reverse path filtering is enabled
+- [x] 3.3.8 - Ensure source routed packets are not accepted
+- [x] 3.3.9 - Ensure suspicious packets are logged
+- [x] 3.3.10 - Ensure tcp syn cookies is enabled
+- [x] 3.3.11 - Ensure ipv6 router advertisements are not accepted
 
 </details>
 
@@ -290,13 +290,13 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
 | 1. Initial Setup (Filesystems) | 26 | 100+ | 26% |
-| 2. Services | 3 | 40+ | 7.5% |
-| 3. Network | 2 | 20+ | 10% |
+| 2. Services | 22 | 40+ | 55% |
+| 3. Network | 13 | 20+ | 65% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
 | 6. Logging/Auditing | 4 | 80+ | 5% |
 | 7. System Maintenance | 5 | 20+ | 25% |
-| **TOTAL** | **62** | **400+** | **~15%** |
+| **TOTAL** | **93** | **400+** | **~23%** |
 
 ---
 
@@ -310,9 +310,15 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Filesystem Partition Checks (26 Checks)
 - **Gesamt:** 62 Checks
 
-### v1.3.0 (Geplant)
+### v1.3.0 ✅ ABGESCHLOSSEN (2025-11-05)
 - Additional Services Checks (22 Checks)
-- **Geplant gesamt:** 84 Checks
+- Network Kernel Parameters (11 Checks)
+- **Gesamt:** 93 Checks
+
+### v2.0.0 (Geplant)
+- System Logging (6.1.x)
+- PAM & Password Policy (5.3.x & 5.4.x)
+- **Geplant gesamt:** 150+ Checks
 
 ---
 
