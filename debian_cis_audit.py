@@ -649,6 +649,870 @@ class NetworkAuditor(BaseAuditor):
         self.check_icmp_redirects()
 
 
+class SSHAuditor(BaseAuditor):
+    """Auditor for SSH server configuration"""
+
+    def _parse_sshd_config(self) -> Dict[str, str]:
+        """Parse sshd_config file and return configuration dict"""
+        config_path = '/etc/ssh/sshd_config'
+        config = {}
+
+        content = self.read_file(config_path)
+        if not content:
+            return config
+
+        for line in content.split('\n'):
+            line = line.strip()
+            # Skip comments and empty lines
+            if not line or line.startswith('#'):
+                continue
+
+            # Parse key value pairs
+            parts = line.split(None, 1)
+            if len(parts) >= 2:
+                key = parts[0].lower()
+                value = parts[1]
+                config[key] = value
+
+        return config
+
+    def check_sshd_config_permissions(self):
+        """Check permissions on /etc/ssh/sshd_config"""
+        path = '/etc/ssh/sshd_config'
+        expected_mode = 0o600
+        expected_owner = 'root'
+        expected_group = 'root'
+
+        if not self.file_exists(path):
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.1",
+                title="Ensure permissions on /etc/ssh/sshd_config are configured",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"{path} not found"
+            ))
+            return
+
+        stat_info = self.get_file_stat(path)
+        if not stat_info:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.1",
+                title="Ensure permissions on /etc/ssh/sshd_config are configured",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Cannot stat {path}"
+            ))
+            return
+
+        issues = []
+        mode = stat.S_IMODE(stat_info.st_mode)
+
+        # Should be 0600 or more restrictive
+        if mode & 0o177:
+            issues.append(f"Too permissive mode: {oct(mode)}, expected: {oct(expected_mode)} or more restrictive")
+
+        try:
+            owner = pwd.getpwuid(stat_info.st_uid).pw_name
+            if owner != expected_owner:
+                issues.append(f"Incorrect owner: {owner}, expected: {expected_owner}")
+        except KeyError:
+            issues.append(f"Unknown owner UID: {stat_info.st_uid}")
+
+        try:
+            group = grp.getgrgid(stat_info.st_gid).gr_name
+            if group != expected_group:
+                issues.append(f"Incorrect group: {group}, expected: {expected_group}")
+        except KeyError:
+            issues.append(f"Unknown group GID: {stat_info.st_gid}")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.1",
+                title="Ensure permissions on /etc/ssh/sshd_config are configured",
+                status=Status.FAIL,
+                severity=Severity.CRITICAL,
+                message="Incorrect permissions on /etc/ssh/sshd_config",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation=f"chown root:root {path} && chmod 600 {path}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.1",
+                title="Ensure permissions on /etc/ssh/sshd_config are configured",
+                status=Status.PASS,
+                severity=Severity.CRITICAL,
+                message="/etc/ssh/sshd_config permissions are correct"
+            ))
+
+    def check_ssh_private_keys(self):
+        """Check permissions on SSH private host key files"""
+        returncode, stdout, stderr = self.run_command([
+            'find', '/etc/ssh', '-xdev', '-type', 'f', '-name', 'ssh_host_*_key'
+        ])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.2",
+                title="Ensure permissions on SSH private host key files are configured",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message="Cannot find SSH private key files",
+                details=stderr
+            ))
+            return
+
+        key_files = [f.strip() for f in stdout.strip().split('\n') if f.strip()]
+        if not key_files:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.2",
+                title="Ensure permissions on SSH private host key files are configured",
+                status=Status.WARNING,
+                severity=Severity.CRITICAL,
+                message="No SSH private key files found"
+            ))
+            return
+
+        issues = []
+        for key_file in key_files:
+            stat_info = self.get_file_stat(key_file)
+            if not stat_info:
+                continue
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+
+            # Should be 0600 or more restrictive
+            if mode & 0o177:
+                issues.append(f"{key_file}: mode {oct(mode)} (expected 0600)")
+
+            try:
+                owner = pwd.getpwuid(stat_info.st_uid).pw_name
+                if owner != 'root':
+                    issues.append(f"{key_file}: owner {owner} (expected root)")
+            except KeyError:
+                issues.append(f"{key_file}: unknown owner UID {stat_info.st_uid}")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.2",
+                title="Ensure permissions on SSH private host key files are configured",
+                status=Status.FAIL,
+                severity=Severity.CRITICAL,
+                message="SSH private key files have incorrect permissions",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="chmod 600 /etc/ssh/ssh_host_*_key && chown root:root /etc/ssh/ssh_host_*_key"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.2",
+                title="Ensure permissions on SSH private host key files are configured",
+                status=Status.PASS,
+                severity=Severity.CRITICAL,
+                message="SSH private key file permissions are correct"
+            ))
+
+    def check_ssh_public_keys(self):
+        """Check permissions on SSH public host key files"""
+        returncode, stdout, stderr = self.run_command([
+            'find', '/etc/ssh', '-xdev', '-type', 'f', '-name', 'ssh_host_*_key.pub'
+        ])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.3",
+                title="Ensure permissions on SSH public host key files are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot find SSH public key files",
+                details=stderr
+            ))
+            return
+
+        key_files = [f.strip() for f in stdout.strip().split('\n') if f.strip()]
+        if not key_files:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.3",
+                title="Ensure permissions on SSH public host key files are configured",
+                status=Status.WARNING,
+                severity=Severity.HIGH,
+                message="No SSH public key files found"
+            ))
+            return
+
+        issues = []
+        for key_file in key_files:
+            stat_info = self.get_file_stat(key_file)
+            if not stat_info:
+                continue
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+
+            # Should be 0644 or more restrictive
+            if mode & 0o133:
+                issues.append(f"{key_file}: mode {oct(mode)} (expected 0644)")
+
+            try:
+                owner = pwd.getpwuid(stat_info.st_uid).pw_name
+                if owner != 'root':
+                    issues.append(f"{key_file}: owner {owner} (expected root)")
+            except KeyError:
+                issues.append(f"{key_file}: unknown owner UID {stat_info.st_uid}")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.3",
+                title="Ensure permissions on SSH public host key files are configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH public key files have incorrect permissions",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="chmod 644 /etc/ssh/ssh_host_*_key.pub && chown root:root /etc/ssh/ssh_host_*_key.pub"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.3",
+                title="Ensure permissions on SSH public host key files are configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH public key file permissions are correct"
+            ))
+
+    def check_sshd_access(self):
+        """Check if sshd access is configured"""
+        config = self._parse_sshd_config()
+
+        has_allow_users = 'allowusers' in config
+        has_allow_groups = 'allowgroups' in config
+        has_deny_users = 'denyusers' in config
+        has_deny_groups = 'denygroups' in config
+
+        if has_allow_users or has_allow_groups or has_deny_users or has_deny_groups:
+            details = []
+            if has_allow_users:
+                details.append(f"AllowUsers: {config['allowusers']}")
+            if has_allow_groups:
+                details.append(f"AllowGroups: {config['allowgroups']}")
+            if has_deny_users:
+                details.append(f"DenyUsers: {config['denyusers']}")
+            if has_deny_groups:
+                details.append(f"DenyGroups: {config['denygroups']}")
+
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.4",
+                title="Ensure sshd access is configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH access restrictions are configured",
+                details="\n".join(f"  - {d}" for d in details)
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.4",
+                title="Ensure sshd access is configured",
+                status=Status.WARNING,
+                severity=Severity.HIGH,
+                message="No SSH access restrictions configured",
+                details="Consider using AllowUsers, AllowGroups, DenyUsers, or DenyGroups",
+                remediation="Add 'AllowUsers <userlist>' or 'AllowGroups <grouplist>' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_banner(self):
+        """Check if sshd Banner is configured"""
+        config = self._parse_sshd_config()
+
+        banner = config.get('banner', '').lower()
+
+        if banner and banner != 'none':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.5",
+                title="Ensure sshd Banner is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"SSH banner is configured: {config.get('banner')}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.5",
+                title="Ensure sshd Banner is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="SSH banner is not configured",
+                remediation="Add 'Banner /etc/issue.net' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_ciphers(self):
+        """Check if sshd Ciphers are configured"""
+        config = self._parse_sshd_config()
+
+        # Recommended strong ciphers
+        recommended_ciphers = [
+            'chacha20-poly1305@openssh.com',
+            'aes256-gcm@openssh.com',
+            'aes128-gcm@openssh.com',
+            'aes256-ctr',
+            'aes192-ctr',
+            'aes128-ctr'
+        ]
+
+        ciphers = config.get('ciphers', '')
+
+        if ciphers:
+            configured_ciphers = [c.strip() for c in ciphers.split(',')]
+            weak_ciphers = [c for c in configured_ciphers if 'cbc' in c.lower() or 'arcfour' in c.lower() or '3des' in c.lower()]
+
+            if weak_ciphers:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.6",
+                    title="Ensure sshd Ciphers are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Weak SSH ciphers are configured",
+                    details=f"Weak ciphers found: {', '.join(weak_ciphers)}",
+                    remediation=f"Set 'Ciphers {','.join(recommended_ciphers)}' in /etc/ssh/sshd_config"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.6",
+                    title="Ensure sshd Ciphers are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Strong SSH ciphers are configured"
+                ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.6",
+                title="Ensure sshd Ciphers are configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH ciphers are not explicitly configured",
+                remediation=f"Add 'Ciphers {','.join(recommended_ciphers)}' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_clientalive(self):
+        """Check if sshd ClientAliveInterval and ClientAliveCountMax are configured"""
+        config = self._parse_sshd_config()
+
+        interval = config.get('clientaliveinterval', '0')
+        count_max = config.get('clientalivecountmax', '3')
+
+        issues = []
+        try:
+            interval_val = int(interval)
+            if interval_val <= 0 or interval_val > 900:
+                issues.append(f"ClientAliveInterval={interval} (should be 1-900)")
+        except ValueError:
+            issues.append(f"ClientAliveInterval={interval} (invalid value)")
+
+        try:
+            count_val = int(count_max)
+            if count_val < 0 or count_val > 3:
+                issues.append(f"ClientAliveCountMax={count_max} (should be 0-3)")
+        except ValueError:
+            issues.append(f"ClientAliveCountMax={count_max} (invalid value)")
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.7",
+                title="Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="SSH client alive settings not properly configured",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Add 'ClientAliveInterval 300' and 'ClientAliveCountMax 3' to /etc/ssh/sshd_config"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.7",
+                title="Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"SSH client alive settings configured correctly (Interval={interval}, CountMax={count_max})"
+            ))
+
+    def check_sshd_disableforwarding(self):
+        """Check if sshd DisableForwarding is enabled"""
+        config = self._parse_sshd_config()
+
+        disable_forwarding = config.get('disableforwarding', 'no').lower()
+
+        if disable_forwarding == 'yes':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.8",
+                title="Ensure sshd DisableForwarding is enabled",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="SSH forwarding is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.8",
+                title="Ensure sshd DisableForwarding is enabled",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="SSH forwarding is not disabled",
+                remediation="Add 'DisableForwarding yes' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_gssapi(self):
+        """Check if sshd GSSAPIAuthentication is disabled"""
+        config = self._parse_sshd_config()
+
+        gssapi = config.get('gssapiauthentication', 'no').lower()
+
+        if gssapi == 'no':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.9",
+                title="Ensure sshd GSSAPIAuthentication is disabled",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="SSH GSSAPI authentication is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.9",
+                title="Ensure sshd GSSAPIAuthentication is disabled",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="SSH GSSAPI authentication is enabled",
+                remediation="Add 'GSSAPIAuthentication no' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_hostbased(self):
+        """Check if sshd HostbasedAuthentication is disabled"""
+        config = self._parse_sshd_config()
+
+        hostbased = config.get('hostbasedauthentication', 'no').lower()
+
+        if hostbased == 'no':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.10",
+                title="Ensure sshd HostbasedAuthentication is disabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH host-based authentication is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.10",
+                title="Ensure sshd HostbasedAuthentication is disabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH host-based authentication is enabled",
+                remediation="Add 'HostbasedAuthentication no' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_ignorerhosts(self):
+        """Check if sshd IgnoreRhosts is enabled"""
+        config = self._parse_sshd_config()
+
+        ignore_rhosts = config.get('ignorerhosts', 'yes').lower()
+
+        if ignore_rhosts == 'yes':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.11",
+                title="Ensure sshd IgnoreRhosts is enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH IgnoreRhosts is enabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.11",
+                title="Ensure sshd IgnoreRhosts is enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH IgnoreRhosts is disabled",
+                remediation="Add 'IgnoreRhosts yes' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_kexalgorithms(self):
+        """Check if sshd KexAlgorithms is configured"""
+        config = self._parse_sshd_config()
+
+        # Recommended strong key exchange algorithms
+        recommended_kex = [
+            'curve25519-sha256',
+            'curve25519-sha256@libssh.org',
+            'ecdh-sha2-nistp521',
+            'ecdh-sha2-nistp384',
+            'ecdh-sha2-nistp256',
+            'diffie-hellman-group-exchange-sha256'
+        ]
+
+        kex = config.get('kexalgorithms', '')
+
+        if kex:
+            configured_kex = [k.strip() for k in kex.split(',')]
+            weak_kex = [k for k in configured_kex if 'sha1' in k.lower() or 'diffie-hellman-group1' in k.lower() or 'diffie-hellman-group14-sha1' in k.lower()]
+
+            if weak_kex:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.12",
+                    title="Ensure sshd KexAlgorithms is configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Weak SSH key exchange algorithms are configured",
+                    details=f"Weak algorithms found: {', '.join(weak_kex)}",
+                    remediation=f"Set 'KexAlgorithms {','.join(recommended_kex)}' in /etc/ssh/sshd_config"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.12",
+                    title="Ensure sshd KexAlgorithms is configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Strong SSH key exchange algorithms are configured"
+                ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.12",
+                title="Ensure sshd KexAlgorithms is configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH key exchange algorithms are not explicitly configured",
+                remediation=f"Add 'KexAlgorithms {','.join(recommended_kex)}' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_logingracetime(self):
+        """Check if sshd LoginGraceTime is configured"""
+        config = self._parse_sshd_config()
+
+        grace_time = config.get('logingracetime', '120')
+
+        try:
+            # Remove 's' or 'm' suffix if present
+            if grace_time.endswith('s'):
+                grace_val = int(grace_time[:-1])
+            elif grace_time.endswith('m'):
+                grace_val = int(grace_time[:-1]) * 60
+            else:
+                grace_val = int(grace_time)
+
+            if grace_val > 0 and grace_val <= 60:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.13",
+                    title="Ensure sshd LoginGraceTime is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH LoginGraceTime is configured correctly: {grace_time}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.13",
+                    title="Ensure sshd LoginGraceTime is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH LoginGraceTime is too high: {grace_time} (should be 1-60 seconds)",
+                    remediation="Add 'LoginGraceTime 60' to /etc/ssh/sshd_config"
+                ))
+        except ValueError:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.13",
+                title="Ensure sshd LoginGraceTime is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"SSH LoginGraceTime has invalid value: {grace_time}"
+            ))
+
+    def check_sshd_loglevel(self):
+        """Check if sshd LogLevel is configured"""
+        config = self._parse_sshd_config()
+
+        log_level = config.get('loglevel', 'INFO').upper()
+
+        acceptable_levels = ['VERBOSE', 'INFO']
+
+        if log_level in acceptable_levels:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.14",
+                title="Ensure sshd LogLevel is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"SSH LogLevel is configured correctly: {log_level}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.14",
+                title="Ensure sshd LogLevel is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"SSH LogLevel is not optimal: {log_level} (should be VERBOSE or INFO)",
+                remediation="Add 'LogLevel VERBOSE' or 'LogLevel INFO' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_macs(self):
+        """Check if sshd MACs are configured"""
+        config = self._parse_sshd_config()
+
+        # Recommended strong MACs
+        recommended_macs = [
+            'hmac-sha2-512-etm@openssh.com',
+            'hmac-sha2-256-etm@openssh.com',
+            'hmac-sha2-512',
+            'hmac-sha2-256'
+        ]
+
+        macs = config.get('macs', '')
+
+        if macs:
+            configured_macs = [m.strip() for m in macs.split(',')]
+            weak_macs = [m for m in configured_macs if 'md5' in m.lower() or 'sha1' in m.lower() and 'sha2' not in m.lower()]
+
+            if weak_macs:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.15",
+                    title="Ensure sshd MACs are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Weak SSH MACs are configured",
+                    details=f"Weak MACs found: {', '.join(weak_macs)}",
+                    remediation=f"Set 'MACs {','.join(recommended_macs)}' in /etc/ssh/sshd_config"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.15",
+                    title="Ensure sshd MACs are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Strong SSH MACs are configured"
+                ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.15",
+                title="Ensure sshd MACs are configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH MACs are not explicitly configured",
+                remediation=f"Add 'MACs {','.join(recommended_macs)}' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_maxauthtries(self):
+        """Check if sshd MaxAuthTries is configured"""
+        config = self._parse_sshd_config()
+
+        max_tries = config.get('maxauthtries', '6')
+
+        try:
+            tries_val = int(max_tries)
+            if tries_val >= 1 and tries_val <= 4:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.16",
+                    title="Ensure sshd MaxAuthTries is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH MaxAuthTries is configured correctly: {max_tries}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.16",
+                    title="Ensure sshd MaxAuthTries is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH MaxAuthTries is too high: {max_tries} (should be 1-4)",
+                    remediation="Add 'MaxAuthTries 4' to /etc/ssh/sshd_config"
+                ))
+        except ValueError:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.16",
+                title="Ensure sshd MaxAuthTries is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"SSH MaxAuthTries has invalid value: {max_tries}"
+            ))
+
+    def check_sshd_maxsessions(self):
+        """Check if sshd MaxSessions is configured"""
+        config = self._parse_sshd_config()
+
+        max_sessions = config.get('maxsessions', '10')
+
+        try:
+            sessions_val = int(max_sessions)
+            if sessions_val >= 1 and sessions_val <= 10:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.17",
+                    title="Ensure sshd MaxSessions is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH MaxSessions is configured correctly: {max_sessions}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.1.17",
+                    title="Ensure sshd MaxSessions is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"SSH MaxSessions is too high: {max_sessions} (should be 1-10)",
+                    remediation="Add 'MaxSessions 10' to /etc/ssh/sshd_config"
+                ))
+        except ValueError:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.17",
+                title="Ensure sshd MaxSessions is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"SSH MaxSessions has invalid value: {max_sessions}"
+            ))
+
+    def check_sshd_maxstartups(self):
+        """Check if sshd MaxStartups is configured"""
+        config = self._parse_sshd_config()
+
+        max_startups = config.get('maxstartups', '10:30:60')
+
+        # MaxStartups format: start:rate:full
+        if ':' in max_startups:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.18",
+                title="Ensure sshd MaxStartups is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"SSH MaxStartups is configured: {max_startups}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.18",
+                title="Ensure sshd MaxStartups is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"SSH MaxStartups may not be optimally configured: {max_startups}",
+                remediation="Add 'MaxStartups 10:30:60' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_permitemptypasswords(self):
+        """Check if sshd PermitEmptyPasswords is disabled"""
+        config = self._parse_sshd_config()
+
+        permit_empty = config.get('permitemptypasswords', 'no').lower()
+
+        if permit_empty == 'no':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.19",
+                title="Ensure sshd PermitEmptyPasswords is disabled",
+                status=Status.PASS,
+                severity=Severity.CRITICAL,
+                message="SSH PermitEmptyPasswords is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.19",
+                title="Ensure sshd PermitEmptyPasswords is disabled",
+                status=Status.FAIL,
+                severity=Severity.CRITICAL,
+                message="SSH PermitEmptyPasswords is enabled - CRITICAL SECURITY ISSUE",
+                remediation="Add 'PermitEmptyPasswords no' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_permitrootlogin(self):
+        """Check if sshd PermitRootLogin is disabled"""
+        config = self._parse_sshd_config()
+
+        permit_root = config.get('permitrootlogin', 'prohibit-password').lower()
+
+        if permit_root == 'no':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.20",
+                title="Ensure sshd PermitRootLogin is disabled",
+                status=Status.PASS,
+                severity=Severity.CRITICAL,
+                message="SSH PermitRootLogin is disabled"
+            ))
+        elif permit_root in ['without-password', 'prohibit-password']:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.20",
+                title="Ensure sshd PermitRootLogin is disabled",
+                status=Status.WARNING,
+                severity=Severity.CRITICAL,
+                message=f"SSH PermitRootLogin is '{permit_root}' (key-based auth allowed)",
+                details="Consider setting to 'no' for maximum security",
+                remediation="Change 'PermitRootLogin no' in /etc/ssh/sshd_config"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.20",
+                title="Ensure sshd PermitRootLogin is disabled",
+                status=Status.FAIL,
+                severity=Severity.CRITICAL,
+                message=f"SSH PermitRootLogin is '{permit_root}' - CRITICAL SECURITY ISSUE",
+                remediation="Add 'PermitRootLogin no' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_permituserenvironment(self):
+        """Check if sshd PermitUserEnvironment is disabled"""
+        config = self._parse_sshd_config()
+
+        permit_userenv = config.get('permituserenvironment', 'no').lower()
+
+        if permit_userenv == 'no':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.21",
+                title="Ensure sshd PermitUserEnvironment is disabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH PermitUserEnvironment is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.21",
+                title="Ensure sshd PermitUserEnvironment is disabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH PermitUserEnvironment is enabled",
+                remediation="Add 'PermitUserEnvironment no' to /etc/ssh/sshd_config"
+            ))
+
+    def check_sshd_usepam(self):
+        """Check if sshd UsePAM is enabled"""
+        config = self._parse_sshd_config()
+
+        use_pam = config.get('usepam', 'yes').lower()
+
+        if use_pam == 'yes':
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.22",
+                title="Ensure sshd UsePAM is enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="SSH UsePAM is enabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.1.22",
+                title="Ensure sshd UsePAM is enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="SSH UsePAM is disabled",
+                remediation="Add 'UsePAM yes' to /etc/ssh/sshd_config"
+            ))
+
+    def run_all_checks(self):
+        """Run all SSH checks"""
+        # File permission checks
+        self.check_sshd_config_permissions()
+        self.check_ssh_private_keys()
+        self.check_ssh_public_keys()
+
+        # Configuration parameter checks
+        self.check_sshd_access()
+        self.check_sshd_banner()
+        self.check_sshd_ciphers()
+        self.check_sshd_clientalive()
+        self.check_sshd_disableforwarding()
+        self.check_sshd_gssapi()
+        self.check_sshd_hostbased()
+        self.check_sshd_ignorerhosts()
+        self.check_sshd_kexalgorithms()
+        self.check_sshd_logingracetime()
+        self.check_sshd_loglevel()
+        self.check_sshd_macs()
+        self.check_sshd_maxauthtries()
+        self.check_sshd_maxsessions()
+        self.check_sshd_maxstartups()
+        self.check_sshd_permitemptypasswords()
+        self.check_sshd_permitrootlogin()
+        self.check_sshd_permituserenvironment()
+        self.check_sshd_usepam()
+
+
 class UserAuditor(BaseAuditor):
     """Auditor for user and group configurations"""
 
@@ -785,6 +1649,10 @@ class DebianCISAudit:
         print("[*] Running Network Checks...")
         network_auditor = NetworkAuditor(self.reporter)
         network_auditor.run_all_checks()
+
+        print("[*] Running SSH Configuration Checks...")
+        ssh_auditor = SSHAuditor(self.reporter)
+        ssh_auditor.run_all_checks()
 
         print("[*] Running User/Group Checks...")
         user_auditor = UserAuditor(self.reporter)

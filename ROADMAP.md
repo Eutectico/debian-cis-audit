@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 14 (~3%)
-- **Status:** Aktiv in Entwicklung
+- **Aktuell implementiert:** 36 (~9%)
+- **Status:** Aktiv in Entwicklung - Phase 2 gestartet
 
 ---
 
@@ -107,34 +107,34 @@
 
 </details>
 
-#### 2. SSH Server Configuration (5.1.x)
+#### 2. SSH Server Configuration (5.1.x) ✅ ABGESCHLOSSEN
 **Priorität: KRITISCH** - 22 Checks
 
 <details>
 <summary>SSH Configuration Checks - 22 Checks</summary>
 
-- [ ] 5.1.1 - Ensure permissions on /etc/ssh/sshd_config are configured
-- [ ] 5.1.2 - Ensure permissions on SSH private host key files are configured
-- [ ] 5.1.3 - Ensure permissions on SSH public host key files are configured
-- [ ] 5.1.4 - Ensure sshd access is configured
-- [ ] 5.1.5 - Ensure sshd Banner is configured
-- [ ] 5.1.6 - Ensure sshd Ciphers are configured
-- [ ] 5.1.7 - Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured
-- [ ] 5.1.8 - Ensure sshd DisableForwarding is enabled
-- [ ] 5.1.9 - Ensure sshd GSSAPIAuthentication is disabled
-- [ ] 5.1.10 - Ensure sshd HostbasedAuthentication is disabled
-- [ ] 5.1.11 - Ensure sshd IgnoreRhosts is enabled
-- [ ] 5.1.12 - Ensure sshd KexAlgorithms is configured
-- [ ] 5.1.13 - Ensure sshd LoginGraceTime is configured
-- [ ] 5.1.14 - Ensure sshd LogLevel is configured
-- [ ] 5.1.15 - Ensure sshd MACs are configured
-- [ ] 5.1.16 - Ensure sshd MaxAuthTries is configured
-- [ ] 5.1.17 - Ensure sshd MaxSessions is configured
-- [ ] 5.1.18 - Ensure sshd MaxStartups is configured
-- [ ] 5.1.19 - Ensure sshd PermitEmptyPasswords is disabled
-- [ ] 5.1.20 - Ensure sshd PermitRootLogin is disabled
-- [ ] 5.1.21 - Ensure sshd PermitUserEnvironment is disabled
-- [ ] 5.1.22 - Ensure sshd UsePAM is enabled
+- [x] 5.1.1 - Ensure permissions on /etc/ssh/sshd_config are configured
+- [x] 5.1.2 - Ensure permissions on SSH private host key files are configured
+- [x] 5.1.3 - Ensure permissions on SSH public host key files are configured
+- [x] 5.1.4 - Ensure sshd access is configured
+- [x] 5.1.5 - Ensure sshd Banner is configured
+- [x] 5.1.6 - Ensure sshd Ciphers are configured
+- [x] 5.1.7 - Ensure sshd ClientAliveInterval and ClientAliveCountMax are configured
+- [x] 5.1.8 - Ensure sshd DisableForwarding is enabled
+- [x] 5.1.9 - Ensure sshd GSSAPIAuthentication is disabled
+- [x] 5.1.10 - Ensure sshd HostbasedAuthentication is disabled
+- [x] 5.1.11 - Ensure sshd IgnoreRhosts is enabled
+- [x] 5.1.12 - Ensure sshd KexAlgorithms is configured
+- [x] 5.1.13 - Ensure sshd LoginGraceTime is configured
+- [x] 5.1.14 - Ensure sshd LogLevel is configured
+- [x] 5.1.15 - Ensure sshd MACs are configured
+- [x] 5.1.16 - Ensure sshd MaxAuthTries is configured
+- [x] 5.1.17 - Ensure sshd MaxSessions is configured
+- [x] 5.1.18 - Ensure sshd MaxStartups is configured
+- [x] 5.1.19 - Ensure sshd PermitEmptyPasswords is disabled
+- [x] 5.1.20 - Ensure sshd PermitRootLogin is disabled
+- [x] 5.1.21 - Ensure sshd PermitUserEnvironment is disabled
+- [x] 5.1.22 - Ensure sshd UsePAM is enabled
 
 </details>
 
@@ -293,28 +293,28 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 2. Services | 3 | 40+ | 7.5% |
 | 3. Network | 2 | 20+ | 10% |
 | 4. Firewall | 0 | 40+ | 0% |
-| 5. Access Control | 0 | 100+ | 0% |
+| 5. Access Control (SSH) | 22 | 100+ | 22% |
 | 6. Logging/Auditing | 4 | 80+ | 5% |
 | 7. System Maintenance | 5 | 20+ | 25% |
-| **TOTAL** | **14** | **400+** | **~3%** |
+| **TOTAL** | **36** | **400+** | **~9%** |
 
 ---
 
 ## 🎯 Nächste Releases
 
-### v1.1.0 (Geplant)
+### v1.1.0 ✅ ABGESCHLOSSEN
 - SSH Configuration Checks (22 Checks)
 - **Gesamt:** 36 Checks
 
-### v1.2.0 (Geplant)
+### v1.2.0 (In Arbeit)
 - Filesystem Partition Checks (35 Checks)
-- **Gesamt:** 71 Checks
+- **Geplant gesamt:** 71 Checks
 
 ### v1.3.0 (Geplant)
 - Additional Services Checks (22 Checks)
-- **Gesamt:** 93 Checks
+- **Geplant gesamt:** 93 Checks
 
 ---
 
-**Status aktualisiert:** 2025-11-04
+**Status aktualisiert:** 2025-11-05
 **Nächstes Update:** Bei jedem neuen Release
