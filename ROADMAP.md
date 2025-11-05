@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 137 (~34%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 145 (~36%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅ | Phase 3 Audit File Access ABGESCHLOSSEN! ✅
 
 ---
 
@@ -239,12 +239,21 @@
   - [x] 6.2.2.2 - Ensure audit logs are not automatically deleted
   - [x] 6.2.2.3 - Ensure system is disabled when audit logs are full (space_left_action)
   - [x] 6.2.2.4 - Ensure admin_space_left_action is configured
+- [x] 6.2.4.x - Audit File Access (9 Checks) ✅ ABGESCHLOSSEN
+  - [x] 6.2.4.1 - Ensure audit log files mode is configured
+  - [x] 6.2.4.2 - Ensure audit log directory permissions are configured
+  - [x] 6.2.4.3 - Ensure audit configuration files are mode 0640 or more restrictive
+  - [x] 6.2.4.4 - Ensure audit configuration files are owned by root
+  - [x] 6.2.4.5 - Ensure audit configuration files belong to group root
+  - [x] 6.2.4.6 - Ensure audit tools are mode 0755 or more restrictive
+  - [x] 6.2.4.7 - Ensure audit tools are owned by root
+  - [x] 6.2.4.8 - Ensure audit tools belong to group root
+  - [x] 6.2.4.9 - Ensure audit configuration files are mode 0640 or more restrictive
 - [x] 6.3.x - Integrity Checking (3 Checks) ✅ ABGESCHLOSSEN
   - [x] 6.3.1 - Ensure AIDE is installed
   - [x] 6.3.2 - Ensure filesystem integrity is regularly checked
   - [x] 6.3.3 - Ensure cryptographic mechanisms are used to protect audit tools
 - [ ] 6.2.3.x - Audit Rules (21 Checks)
-- [ ] 6.2.4.x - Audit File Access (erweitern, 9 weitere Checks)
 
 ### PAM & Password Policy (5.3.x & 5.4.x)
 - [ ] 5.3.x - PAM Configuration (40+ Checks)
@@ -326,9 +335,9 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 0 | 40+ | 0% |
 | 5. Access Control (SSH) | 22 | 100+ | 22% |
-| 6. Logging/Auditing | 22 | 80+ | 28% |
+| 6. Logging/Auditing | 30 | 80+ | 38% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **137** | **400+** | **~34%** |
+| **TOTAL** | **145** | **400+** | **~36%** |
 
 ---
 
@@ -366,9 +375,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Integrity Checking (6.3.x - 3 Checks)
 - **Gesamt:** 137 Checks (~34% Coverage)
 
+### v1.8.0 ✅ ABGESCHLOSSEN (2025-11-05)
+- Audit File Access (6.2.4.x - 8 weitere Checks)
+- **Gesamt:** 145 Checks (~36% Coverage)
+
 ### v2.0.0 (Geplant)
 - PAM & Password Policy (5.3.x & 5.4.x)
-- Audit File Access (6.2.4.x)
 - Audit Rules (6.2.3.x)
 - **Geplant gesamt:** 180+ Checks
 

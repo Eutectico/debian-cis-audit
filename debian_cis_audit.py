@@ -152,14 +152,14 @@ class BaseAuditor:
     def __init__(self, reporter: AuditReporter):
         self.reporter = reporter
 
-    def run_command(self, cmd: List[str]) -> Tuple[int, str, str]:
+    def run_command(self, cmd: List[str], timeout: int = 30) -> Tuple[int, str, str]:
         """Run a shell command and return returncode, stdout, stderr"""
         try:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30
+                timeout=timeout
             )
             return result.returncode, result.stdout, result.stderr
         except subprocess.TimeoutExpired:
@@ -678,17 +678,386 @@ class AuditdAuditor(BaseAuditor):
                 remediation="Set admin_space_left_action=single in /etc/audit/auditd.conf"
             ))
 
+    def check_audit_log_directory_permissions(self):
+        """6.2.4.2 - Ensure audit log directory permissions are configured"""
+        log_dir = '/var/log/audit'
+
+        if not self.file_exists(log_dir):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.2",
+                title="Ensure audit log directory permissions are configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"Audit log directory {log_dir} does not exist"
+            ))
+            return
+
+        stat_info = self.get_file_stat(log_dir)
+        if not stat_info:
+            return
+
+        mode = stat.S_IMODE(stat_info.st_mode)
+        expected_mode = 0o750  # rwxr-x---
+
+        # Check if permissions are 0750 or more restrictive
+        if mode & 0o027:  # Check if group write or other has any permissions
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.2",
+                title="Ensure audit log directory permissions are configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"Audit log directory has incorrect permissions: {oct(mode)}",
+                details=f"Expected: {oct(expected_mode)} (0750 or more restrictive)",
+                remediation=f"chmod 0750 {log_dir}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.2",
+                title="Ensure audit log directory permissions are configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"Audit log directory permissions are correct: {oct(mode)}"
+            ))
+
+    def check_audit_config_file_permissions(self):
+        """6.2.4.3 - Ensure audit configuration files are mode 0640 or more restrictive"""
+        config_file = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_file):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.3",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file {config_file} does not exist"
+            ))
+            return
+
+        stat_info = self.get_file_stat(config_file)
+        if not stat_info:
+            return
+
+        mode = stat.S_IMODE(stat_info.st_mode)
+        expected_mode = 0o640  # rw-r-----
+
+        # Check if permissions are too permissive
+        if mode & 0o137:  # Check for owner execute, group write/execute, or other permissions
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.3",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file has incorrect permissions: {oct(mode)}",
+                details=f"Expected: {oct(expected_mode)} (0640 or more restrictive)",
+                remediation=f"chmod 0640 {config_file}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.3",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file permissions are correct: {oct(mode)}"
+            ))
+
+    def check_audit_config_file_ownership(self):
+        """6.2.4.4 - Ensure audit configuration files are owned by root"""
+        config_file = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_file):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.4",
+                title="Ensure audit configuration files are owned by root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file {config_file} does not exist"
+            ))
+            return
+
+        stat_info = self.get_file_stat(config_file)
+        if not stat_info:
+            return
+
+        # Check if owned by root (UID 0)
+        if stat_info.st_uid != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.4",
+                title="Ensure audit configuration files are owned by root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file is not owned by root (UID: {stat_info.st_uid})",
+                remediation=f"chown root:root {config_file}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.4",
+                title="Ensure audit configuration files are owned by root",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Audit config file is owned by root"
+            ))
+
+    def check_audit_config_file_group_ownership(self):
+        """6.2.4.5 - Ensure audit configuration files belong to group root"""
+        config_file = '/etc/audit/auditd.conf'
+
+        if not self.file_exists(config_file):
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.5",
+                title="Ensure audit configuration files belong to group root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file {config_file} does not exist"
+            ))
+            return
+
+        stat_info = self.get_file_stat(config_file)
+        if not stat_info:
+            return
+
+        # Check if group is root (GID 0)
+        if stat_info.st_gid != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.5",
+                title="Ensure audit configuration files belong to group root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Audit config file does not belong to group root (GID: {stat_info.st_gid})",
+                remediation=f"chgrp root {config_file}"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.5",
+                title="Ensure audit configuration files belong to group root",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Audit config file belongs to group root"
+            ))
+
+    def check_audit_tools_permissions(self):
+        """6.2.4.6 - Ensure audit tools are mode 0755 or more restrictive"""
+        audit_tools = [
+            '/sbin/auditctl',
+            '/sbin/aureport',
+            '/sbin/ausearch',
+            '/sbin/autrace',
+            '/sbin/auditd',
+            '/sbin/augenrules'
+        ]
+
+        issues = []
+        passed = []
+
+        for tool in audit_tools:
+            if not self.file_exists(tool):
+                issues.append(f"{tool} does not exist")
+                continue
+
+            stat_info = self.get_file_stat(tool)
+            if not stat_info:
+                continue
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            expected_mode = 0o755  # rwxr-xr-x
+
+            # Check if permissions are too permissive (e.g., group/other write)
+            if mode & 0o022:  # Check for group write or other write
+                issues.append(f"{tool} has incorrect permissions: {oct(mode)}")
+            else:
+                passed.append(tool)
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.6",
+                title="Ensure audit tools are mode 0755 or more restrictive",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Some audit tools have incorrect permissions",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Run: chmod 0755 /sbin/audit{ctl,d,report,search,trace} /sbin/augenrules"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.6",
+                title="Ensure audit tools are mode 0755 or more restrictive",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"All audit tools have correct permissions ({len(passed)} tools checked)"
+            ))
+
+    def check_audit_tools_ownership(self):
+        """6.2.4.7 - Ensure audit tools are owned by root"""
+        audit_tools = [
+            '/sbin/auditctl',
+            '/sbin/aureport',
+            '/sbin/ausearch',
+            '/sbin/autrace',
+            '/sbin/auditd',
+            '/sbin/augenrules'
+        ]
+
+        issues = []
+        passed = []
+
+        for tool in audit_tools:
+            if not self.file_exists(tool):
+                issues.append(f"{tool} does not exist")
+                continue
+
+            stat_info = self.get_file_stat(tool)
+            if not stat_info:
+                continue
+
+            # Check if owned by root (UID 0)
+            if stat_info.st_uid != 0:
+                issues.append(f"{tool} is not owned by root (UID: {stat_info.st_uid})")
+            else:
+                passed.append(tool)
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.7",
+                title="Ensure audit tools are owned by root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Some audit tools are not owned by root",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Run: chown root /sbin/audit{ctl,d,report,search,trace} /sbin/augenrules"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.7",
+                title="Ensure audit tools are owned by root",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"All audit tools are owned by root ({len(passed)} tools checked)"
+            ))
+
+    def check_audit_tools_group_ownership(self):
+        """6.2.4.8 - Ensure audit tools belong to group root"""
+        audit_tools = [
+            '/sbin/auditctl',
+            '/sbin/aureport',
+            '/sbin/ausearch',
+            '/sbin/autrace',
+            '/sbin/auditd',
+            '/sbin/augenrules'
+        ]
+
+        issues = []
+        passed = []
+
+        for tool in audit_tools:
+            if not self.file_exists(tool):
+                issues.append(f"{tool} does not exist")
+                continue
+
+            stat_info = self.get_file_stat(tool)
+            if not stat_info:
+                continue
+
+            # Check if group is root (GID 0)
+            if stat_info.st_gid != 0:
+                issues.append(f"{tool} does not belong to group root (GID: {stat_info.st_gid})")
+            else:
+                passed.append(tool)
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.8",
+                title="Ensure audit tools belong to group root",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Some audit tools do not belong to group root",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Run: chgrp root /sbin/audit{ctl,d,report,search,trace} /sbin/augenrules"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.8",
+                title="Ensure audit tools belong to group root",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"All audit tools belong to group root ({len(passed)} tools checked)"
+            ))
+
+    def check_audit_rules_permissions(self):
+        """6.2.4.9 - Ensure audit configuration files are mode 0640 or more restrictive"""
+        rules_files = [
+            '/etc/audit/audit.rules',
+            '/etc/audit/rules.d/audit.rules'
+        ]
+
+        issues = []
+        passed = []
+        all_missing = True
+
+        for rules_file in rules_files:
+            if not self.file_exists(rules_file):
+                continue
+
+            all_missing = False
+            stat_info = self.get_file_stat(rules_file)
+            if not stat_info:
+                continue
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            expected_mode = 0o640  # rw-r-----
+
+            # Check if permissions are too permissive
+            if mode & 0o137:  # Check for owner execute, group write/execute, or other permissions
+                issues.append(f"{rules_file} has incorrect permissions: {oct(mode)}")
+            else:
+                passed.append(rules_file)
+
+        if all_missing:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.9",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="No audit rules files found",
+                details="This may be expected if audit rules are not yet configured"
+            ))
+        elif issues:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.9",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Some audit rules files have incorrect permissions",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Run: chmod 0640 /etc/audit/audit.rules /etc/audit/rules.d/*.rules"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="6.2.4.9",
+                title="Ensure audit configuration files are mode 0640 or more restrictive",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"All audit rules files have correct permissions ({len(passed)} files checked)"
+            ))
+
     def run_all_checks(self):
         """Run all auditd checks"""
         self.check_auditd_installed()
         self.check_auditd_enabled()
         self.check_auditd_config()
-        self.check_audit_log_permissions()
         # Audit Data Retention checks (6.2.2.x)
         self.check_audit_log_file_size()
         self.check_audit_max_log_file_action()
         self.check_audit_space_left_action()
         self.check_audit_admin_space_left_action()
+        # Audit File Access checks (6.2.4.x)
+        self.check_audit_log_permissions()
+        self.check_audit_log_directory_permissions()
+        self.check_audit_config_file_permissions()
+        self.check_audit_config_file_ownership()
+        self.check_audit_config_file_group_ownership()
+        self.check_audit_tools_permissions()
+        self.check_audit_tools_ownership()
+        self.check_audit_tools_group_ownership()
+        self.check_audit_rules_permissions()
 
 
 class SystemLoggingAuditor(BaseAuditor):
