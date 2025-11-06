@@ -2437,6 +2437,514 @@ class ServiceAuditor(BaseAuditor):
             ))
 
 
+class TimeSyncAuditor(BaseAuditor):
+    """Auditor for time synchronization configuration (2.3.x)"""
+
+    def check_systemd_timesyncd_installed(self):
+        """2.3.1.1 - Ensure systemd-timesyncd is installed"""
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'systemd-timesyncd'])
+
+        if returncode == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.1",
+                title="Ensure systemd-timesyncd is installed",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="systemd-timesyncd is installed"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.1",
+                title="Ensure systemd-timesyncd is installed",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="systemd-timesyncd is not installed",
+                details="Time synchronization is critical for logs, authentication, and security",
+                remediation="apt install systemd-timesyncd"
+            ))
+
+    def check_systemd_timesyncd_enabled(self):
+        """2.3.1.2 - Ensure systemd-timesyncd is enabled and running"""
+        # Check if enabled
+        returncode_enabled, stdout_enabled, _ = self.run_command(['systemctl', 'is-enabled', 'systemd-timesyncd.service'])
+        # Check if active
+        returncode_active, stdout_active, _ = self.run_command(['systemctl', 'is-active', 'systemd-timesyncd.service'])
+
+        enabled = stdout_enabled.strip() == 'enabled'
+        active = stdout_active.strip() == 'active'
+
+        if enabled and active:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.2",
+                title="Ensure systemd-timesyncd is enabled and running",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="systemd-timesyncd is enabled and running"
+            ))
+        else:
+            issues = []
+            if not enabled:
+                issues.append("not enabled")
+            if not active:
+                issues.append("not active")
+
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.2",
+                title="Ensure systemd-timesyncd is enabled and running",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"systemd-timesyncd is {', '.join(issues)}",
+                remediation="systemctl enable systemd-timesyncd.service && systemctl start systemd-timesyncd.service"
+            ))
+
+    def check_systemd_timesyncd_configured(self):
+        """2.3.1.3 - Ensure systemd-timesyncd is configured"""
+        config_path = '/etc/systemd/timesyncd.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.3",
+                title="Ensure systemd-timesyncd is configured",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message=f"Configuration file {config_path} not found",
+                details="Using default configuration",
+                remediation=f"Create {config_path} and configure NTP servers"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.3",
+                title="Ensure systemd-timesyncd is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Check for NTP or FallbackNTP configuration
+        has_ntp = False
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith('NTP=') or line.startswith('FallbackNTP='):
+                if not line.startswith('#'):
+                    has_ntp = True
+                    break
+
+        if has_ntp:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.3",
+                title="Ensure systemd-timesyncd is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="systemd-timesyncd is configured with NTP servers"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.1.3",
+                title="Ensure systemd-timesyncd is configured",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="No NTP servers configured",
+                details="Using default NTP servers",
+                remediation=f"Edit {config_path} and configure NTP= or FallbackNTP="
+            ))
+
+    def check_chrony_installed(self):
+        """2.3.2.1 - Ensure chrony is installed"""
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'chrony'])
+
+        if returncode == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.1",
+                title="Ensure chrony is installed",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="chrony is installed"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.1",
+                title="Ensure chrony is installed",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="chrony is not installed",
+                details="chrony is an alternative NTP client that may be preferred over systemd-timesyncd",
+                remediation="apt install chrony"
+            ))
+
+    def check_chrony_enabled(self):
+        """2.3.2.2 - Ensure chrony is enabled and running"""
+        # Check if chrony is installed first
+        returncode_installed, _, _ = self.run_command(['dpkg', '-s', 'chrony'])
+        if returncode_installed != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.2",
+                title="Ensure chrony is enabled and running",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="chrony is not installed"
+            ))
+            return
+
+        # Check if enabled
+        returncode_enabled, stdout_enabled, _ = self.run_command(['systemctl', 'is-enabled', 'chrony.service'])
+        # Check if active
+        returncode_active, stdout_active, _ = self.run_command(['systemctl', 'is-active', 'chrony.service'])
+
+        enabled = stdout_enabled.strip() == 'enabled'
+        active = stdout_active.strip() == 'active'
+
+        if enabled and active:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.2",
+                title="Ensure chrony is enabled and running",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="chrony is enabled and running"
+            ))
+        else:
+            issues = []
+            if not enabled:
+                issues.append("not enabled")
+            if not active:
+                issues.append("not active")
+
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.2",
+                title="Ensure chrony is enabled and running",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"chrony is {', '.join(issues)}",
+                remediation="systemctl enable chrony.service && systemctl start chrony.service"
+            ))
+
+    def check_chrony_configured(self):
+        """2.3.2.3 - Ensure chrony is configured"""
+        # Check if chrony is installed first
+        returncode_installed, _, _ = self.run_command(['dpkg', '-s', 'chrony'])
+        if returncode_installed != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.3",
+                title="Ensure chrony is configured",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="chrony is not installed"
+            ))
+            return
+
+        config_path = '/etc/chrony/chrony.conf'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.3",
+                title="Ensure chrony is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Configuration file {config_path} not found",
+                remediation=f"Create {config_path} and configure NTP servers"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.3",
+                title="Ensure chrony is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Check for server or pool configuration
+        has_server = False
+        for line in content.splitlines():
+            line = line.strip()
+            if (line.startswith('server ') or line.startswith('pool ')) and not line.startswith('#'):
+                has_server = True
+                break
+
+        if has_server:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.3",
+                title="Ensure chrony is configured",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="chrony is configured with NTP servers"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.2.3",
+                title="Ensure chrony is configured",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="No NTP servers configured in chrony",
+                remediation=f"Edit {config_path} and add 'server' or 'pool' directives"
+            ))
+
+    def check_single_time_sync_daemon(self):
+        """2.3.3 - Ensure only one time synchronization daemon is in use"""
+        # Check which time sync daemons are active
+        daemons = {
+            'systemd-timesyncd': False,
+            'chrony': False,
+            'ntpd': False
+        }
+
+        for daemon in daemons.keys():
+            service_name = f"{daemon}.service" if daemon != 'ntpd' else 'ntp.service'
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-active', service_name])
+            if stdout.strip() == 'active':
+                daemons[daemon] = True
+
+        active_daemons = [name for name, active in daemons.items() if active]
+
+        if len(active_daemons) == 1:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.3",
+                title="Ensure only one time synchronization daemon is in use",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"Only one time sync daemon is active: {active_daemons[0]}"
+            ))
+        elif len(active_daemons) == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.3",
+                title="Ensure only one time synchronization daemon is in use",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="No time synchronization daemon is active",
+                details="System time will drift without time synchronization",
+                remediation="Enable either systemd-timesyncd or chrony"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.3.3",
+                title="Ensure only one time synchronization daemon is in use",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"Multiple time sync daemons are active: {', '.join(active_daemons)}",
+                details="Having multiple time sync daemons can cause conflicts",
+                remediation=f"Disable all but one: systemctl disable {active_daemons[1]}.service"
+            ))
+
+    def run_all_checks(self):
+        """Run all time synchronization checks"""
+        self.check_systemd_timesyncd_installed()
+        self.check_systemd_timesyncd_enabled()
+        self.check_systemd_timesyncd_configured()
+        self.check_chrony_installed()
+        self.check_chrony_enabled()
+        self.check_chrony_configured()
+        self.check_single_time_sync_daemon()
+
+
+class JobSchedulerAuditor(BaseAuditor):
+    """Auditor for cron and at job scheduler configuration (2.4.x)"""
+
+    def check_cron_installed(self):
+        """2.4.1.1 - Ensure cron daemon is installed"""
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'cron'])
+
+        if returncode == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.1.1",
+                title="Ensure cron daemon is installed",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="cron daemon is installed"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.1.1",
+                title="Ensure cron daemon is installed",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="cron daemon is not installed",
+                details="cron is required for scheduled system tasks",
+                remediation="apt install cron"
+            ))
+
+    def check_cron_enabled(self):
+        """2.4.1.2 - Ensure cron daemon is enabled and running"""
+        # Check if enabled
+        returncode_enabled, stdout_enabled, _ = self.run_command(['systemctl', 'is-enabled', 'cron.service'])
+        # Check if active
+        returncode_active, stdout_active, _ = self.run_command(['systemctl', 'is-active', 'cron.service'])
+
+        enabled = stdout_enabled.strip() == 'enabled'
+        active = stdout_active.strip() == 'active'
+
+        if enabled and active:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.1.2",
+                title="Ensure cron daemon is enabled and running",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="cron daemon is enabled and running"
+            ))
+        else:
+            issues = []
+            if not enabled:
+                issues.append("not enabled")
+            if not active:
+                issues.append("not active")
+
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.1.2",
+                title="Ensure cron daemon is enabled and running",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"cron daemon is {', '.join(issues)}",
+                remediation="systemctl enable cron.service && systemctl start cron.service"
+            ))
+
+    def _check_cron_permissions(self, path: str, check_id: str, title: str):
+        """Helper method to check cron directory/file permissions"""
+        if not self.file_exists(path):
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message=f"{path} does not exist"
+            ))
+            return
+
+        stat_info = self.get_file_stat(path)
+        if not stat_info:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot get file statistics for {path}"
+            ))
+            return
+
+        mode = stat.S_IMODE(stat_info.st_mode)
+        owner_uid = stat_info.st_uid
+        group_gid = stat_info.st_gid
+
+        issues = []
+
+        # Check owner is root (UID 0)
+        if owner_uid != 0:
+            issues.append(f"Owner is not root (UID {owner_uid})")
+
+        # Check group is root (GID 0)
+        if group_gid != 0:
+            issues.append(f"Group is not root (GID {group_gid})")
+
+        # Check permissions are 0700 or more restrictive (no group/other access)
+        if mode & 0o077:
+            issues.append(f"Permissions {oct(mode)} are too permissive (should be 0700 or more restrictive)")
+
+        if len(issues) == 0:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f"{path} has correct permissions ({oct(mode)})"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id=check_id,
+                title=title,
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"{path} has incorrect permissions",
+                details="\n".join(issues),
+                remediation=f"chown root:root {path} && chmod 0700 {path}"
+            ))
+
+    def check_crontab_permissions(self):
+        """2.4.1.3 - Ensure permissions on /etc/crontab are configured"""
+        self._check_cron_permissions('/etc/crontab', '2.4.1.3', 'Ensure permissions on /etc/crontab are configured')
+
+    def check_cron_hourly_permissions(self):
+        """2.4.1.4 - Ensure permissions on /etc/cron.hourly are configured"""
+        self._check_cron_permissions('/etc/cron.hourly', '2.4.1.4', 'Ensure permissions on /etc/cron.hourly are configured')
+
+    def check_cron_daily_permissions(self):
+        """2.4.1.5 - Ensure permissions on /etc/cron.daily are configured"""
+        self._check_cron_permissions('/etc/cron.daily', '2.4.1.5', 'Ensure permissions on /etc/cron.daily are configured')
+
+    def check_cron_weekly_permissions(self):
+        """2.4.1.6 - Ensure permissions on /etc/cron.weekly are configured"""
+        self._check_cron_permissions('/etc/cron.weekly', '2.4.1.6', 'Ensure permissions on /etc/cron.weekly are configured')
+
+    def check_cron_monthly_permissions(self):
+        """2.4.1.7 - Ensure permissions on /etc/cron.monthly are configured"""
+        self._check_cron_permissions('/etc/cron.monthly', '2.4.1.7', 'Ensure permissions on /etc/cron.monthly are configured')
+
+    def check_cron_d_permissions(self):
+        """2.4.1.8 - Ensure permissions on /etc/cron.d are configured"""
+        self._check_cron_permissions('/etc/cron.d', '2.4.1.8', 'Ensure permissions on /etc/cron.d are configured')
+
+    def check_at_restricted(self):
+        """2.4.2.1 - Ensure at is restricted to authorized users"""
+        # Check for /etc/at.deny and /etc/at.allow
+        at_deny_exists = self.file_exists('/etc/at.deny')
+        at_allow_exists = self.file_exists('/etc/at.allow')
+
+        # Best practice: /etc/at.allow exists and /etc/at.deny does not exist
+        if at_allow_exists and not at_deny_exists:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.2.1",
+                title="Ensure at is restricted to authorized users",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="/etc/at.allow exists and /etc/at.deny does not exist"
+            ))
+        elif at_allow_exists and at_deny_exists:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.2.1",
+                title="Ensure at is restricted to authorized users",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="Both /etc/at.allow and /etc/at.deny exist",
+                details="/etc/at.allow takes precedence, but /etc/at.deny should be removed",
+                remediation="rm /etc/at.deny"
+            ))
+        elif at_deny_exists and not at_allow_exists:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.2.1",
+                title="Ensure at is restricted to authorized users",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Only /etc/at.deny exists (allow-by-default)",
+                details="Using deny-list approach is less secure than allow-list",
+                remediation="Create /etc/at.allow with authorized users and remove /etc/at.deny"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="2.4.2.1",
+                title="Ensure at is restricted to authorized users",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Neither /etc/at.allow nor /etc/at.deny exists",
+                details="at is unrestricted (all users can schedule jobs)",
+                remediation="Create /etc/at.allow with authorized users"
+            ))
+
+    def run_all_checks(self):
+        """Run all job scheduler checks"""
+        self.check_cron_installed()
+        self.check_cron_enabled()
+        self.check_crontab_permissions()
+        self.check_cron_hourly_permissions()
+        self.check_cron_daily_permissions()
+        self.check_cron_weekly_permissions()
+        self.check_cron_monthly_permissions()
+        self.check_cron_d_permissions()
+        self.check_at_restricted()
+
+
 class KernelModuleAuditor(BaseAuditor):
     """Auditor for kernel module configurations"""
 
@@ -4182,6 +4690,527 @@ class BootloaderAuditor(BaseAuditor):
         """Run all bootloader security checks"""
         self.check_bootloader_password()
         self.check_bootloader_config_permissions()
+
+
+class GDMAuditor(BaseAuditor):
+    """Auditor for GNOME Display Manager configuration (1.7.x)"""
+
+    def check_gdm_removed_or_configured(self):
+        """1.7.1 - Ensure GDM is removed or login is configured"""
+        # Check if GDM3 is installed
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'gdm3'])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.1",
+                title="Ensure GDM is removed or login is configured",
+                status=Status.PASS,
+                severity=Severity.LOW,
+                message="GDM3 is not installed (server system)"
+            ))
+            return
+
+        # GDM3 is installed, check if it's configured
+        # This is informational - configuration is checked in subsequent tests
+        self.reporter.add_result(AuditResult(
+            check_id="1.7.1",
+            title="Ensure GDM is removed or login is configured",
+            status=Status.PASS,
+            severity=Severity.LOW,
+            message="GDM3 is installed (check subsequent GDM configuration tests)",
+            details="GDM3 detected - ensure it is properly configured"
+        ))
+
+    def check_gdm_banner(self):
+        """1.7.2 - Ensure GDM login banner is configured"""
+        # Check if GDM3 is installed
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.2",
+                title="Ensure GDM login banner is configured",
+                status=Status.SKIP,
+                severity=Severity.LOW,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        # Check for banner configuration in GDM dconf profile
+        banner_paths = [
+            '/etc/dconf/db/gdm.d/01-banner-message',
+            '/etc/gdm3/greeter.dconf-defaults'
+        ]
+
+        banner_configured = False
+        for path in banner_paths:
+            if self.file_exists(path):
+                content = self.read_file(path)
+                if content and 'banner-message-enable=true' in content.replace(' ', ''):
+                    banner_configured = True
+                    break
+
+        if banner_configured:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.2",
+                title="Ensure GDM login banner is configured",
+                status=Status.PASS,
+                severity=Severity.LOW,
+                message="GDM login banner is configured"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.2",
+                title="Ensure GDM login banner is configured",
+                status=Status.FAIL,
+                severity=Severity.LOW,
+                message="GDM login banner is not configured",
+                details="Login banners can display security warnings or acceptable use policies",
+                remediation="Create /etc/dconf/db/gdm.d/01-banner-message with banner-message-enable=true"
+            ))
+
+    def check_gdm_disable_user_list(self):
+        """1.7.3 - Ensure GDM disable-user-list option is enabled"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.3",
+                title="Ensure GDM disable-user-list option is enabled",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        config_paths = [
+            '/etc/dconf/db/gdm.d/00-login-screen',
+            '/etc/gdm3/greeter.dconf-defaults'
+        ]
+
+        user_list_disabled = False
+        for path in config_paths:
+            if self.file_exists(path):
+                content = self.read_file(path)
+                if content and 'disable-user-list=true' in content.replace(' ', ''):
+                    user_list_disabled = True
+                    break
+
+        if user_list_disabled:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.3",
+                title="Ensure GDM disable-user-list option is enabled",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="GDM user list is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.3",
+                title="Ensure GDM disable-user-list option is enabled",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="GDM user list is not disabled",
+                details="Disabling the user list prevents user enumeration",
+                remediation="Create /etc/dconf/db/gdm.d/00-login-screen with disable-user-list=true"
+            ))
+
+    def check_gdm_screen_lock_idle(self):
+        """1.7.4 - Ensure GDM screen locks when the user is idle"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.4",
+                title="Ensure GDM screen locks when the user is idle",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        config_path = '/etc/dconf/db/local.d/00-screensaver'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.4",
+                title="Ensure GDM screen locks when the user is idle",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Screen lock configuration not found",
+                remediation=f"Create {config_path} with idle-delay and lock-enabled settings"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.4",
+                title="Ensure GDM screen locks when the user is idle",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Check for idle-delay and lock-enabled settings
+        has_idle_delay = 'idle-delay' in content
+        has_lock_enabled = 'lock-enabled=true' in content.replace(' ', '')
+
+        if has_idle_delay and has_lock_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.4",
+                title="Ensure GDM screen locks when the user is idle",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Screen lock on idle is configured"
+            ))
+        else:
+            missing = []
+            if not has_idle_delay:
+                missing.append("idle-delay")
+            if not has_lock_enabled:
+                missing.append("lock-enabled")
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.4",
+                title="Ensure GDM screen locks when the user is idle",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message=f"Screen lock configuration incomplete: missing {', '.join(missing)}",
+                remediation=f"Edit {config_path} and add idle-delay and lock-enabled=true"
+            ))
+
+    def check_gdm_screen_lock_override(self):
+        """1.7.5 - Ensure GDM screen locks cannot be overridden"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.5",
+                title="Ensure GDM screen locks cannot be overridden",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        locks_path = '/etc/dconf/db/local.d/locks/00-screensaver'
+
+        if not self.file_exists(locks_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.5",
+                title="Ensure GDM screen locks cannot be overridden",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Screen lock settings are not locked (can be overridden by users)",
+                remediation=f"Create {locks_path} to lock screen saver settings"
+            ))
+            return
+
+        content = self.read_file(locks_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.5",
+                title="Ensure GDM screen locks cannot be overridden",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {locks_path}"
+            ))
+            return
+
+        # Check for locked settings
+        has_locks = '/org/gnome/desktop/screensaver/' in content or '/org/gnome/desktop/session/' in content
+
+        if has_locks:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.5",
+                title="Ensure GDM screen locks cannot be overridden",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Screen lock settings are locked"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.5",
+                title="Ensure GDM screen locks cannot be overridden",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Screen lock settings file exists but appears incomplete",
+                remediation=f"Edit {locks_path} to lock screensaver settings"
+            ))
+
+    def check_gdm_automount_disabled(self):
+        """1.7.6 - Ensure GDM automatic mounting of removable media is disabled"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.6",
+                title="Ensure GDM automatic mounting of removable media is disabled",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        config_path = '/etc/dconf/db/local.d/00-media-automount'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.6",
+                title="Ensure GDM automatic mounting of removable media is disabled",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Automount configuration not found",
+                remediation=f"Create {config_path} with automount settings disabled"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.6",
+                title="Ensure GDM automatic mounting of removable media is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Check for automount disabled settings
+        automount_disabled = 'automount=false' in content.replace(' ', '')
+        automount_open_disabled = 'automount-open=false' in content.replace(' ', '')
+
+        if automount_disabled and automount_open_disabled:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.6",
+                title="Ensure GDM automatic mounting of removable media is disabled",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Automatic mounting is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.6",
+                title="Ensure GDM automatic mounting of removable media is disabled",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Automatic mounting is not properly disabled",
+                remediation=f"Edit {config_path} with automount=false and automount-open=false"
+            ))
+
+    def check_gdm_automount_override(self):
+        """1.7.7 - Ensure GDM disabling automatic mounting is not overridden"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.7",
+                title="Ensure GDM disabling automatic mounting is not overridden",
+                status=Status.SKIP,
+                severity=Severity.MEDIUM,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        locks_path = '/etc/dconf/db/local.d/locks/00-media-automount'
+
+        if not self.file_exists(locks_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.7",
+                title="Ensure GDM disabling automatic mounting is not overridden",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Automount settings are not locked",
+                remediation=f"Create {locks_path} to lock automount settings"
+            ))
+            return
+
+        content = self.read_file(locks_path)
+        if content and '/org/gnome/desktop/media-handling/' in content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.7",
+                title="Ensure GDM disabling automatic mounting is not overridden",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="Automount settings are locked"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.7",
+                title="Ensure GDM disabling automatic mounting is not overridden",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Automount lock file incomplete",
+                remediation=f"Edit {locks_path} to lock media-handling settings"
+            ))
+
+    def check_gdm_autorun_never(self):
+        """1.7.8 - Ensure GDM autorun-never is enabled"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.8",
+                title="Ensure GDM autorun-never is enabled",
+                status=Status.SKIP,
+                severity=Severity.HIGH,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        config_path = '/etc/dconf/db/local.d/00-media-autorun'
+
+        if not self.file_exists(config_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.8",
+                title="Ensure GDM autorun-never is enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Autorun configuration not found",
+                details="Autorun can automatically execute malicious code from removable media",
+                remediation=f"Create {config_path} with autorun-never=true"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if content and 'autorun-never=true' in content.replace(' ', ''):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.8",
+                title="Ensure GDM autorun-never is enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="Autorun is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.8",
+                title="Ensure GDM autorun-never is enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Autorun is not disabled",
+                details="Autorun can execute malicious code",
+                remediation=f"Edit {config_path} with autorun-never=true"
+            ))
+
+    def check_gdm_autorun_override(self):
+        """1.7.9 - Ensure GDM autorun-never is not overridden"""
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.9",
+                title="Ensure GDM autorun-never is not overridden",
+                status=Status.SKIP,
+                severity=Severity.HIGH,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        locks_path = '/etc/dconf/db/local.d/locks/00-media-autorun'
+
+        if not self.file_exists(locks_path):
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.9",
+                title="Ensure GDM autorun-never is not overridden",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Autorun settings are not locked",
+                remediation=f"Create {locks_path} to lock autorun settings"
+            ))
+            return
+
+        content = self.read_file(locks_path)
+        if content and '/org/gnome/desktop/media-handling/autorun-never' in content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.9",
+                title="Ensure GDM autorun-never is not overridden",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="Autorun settings are locked"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.9",
+                title="Ensure GDM autorun-never is not overridden",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Autorun lock file incomplete",
+                remediation=f"Edit {locks_path} to lock autorun-never setting"
+            ))
+
+    def check_xdmcp_disabled(self):
+        """1.7.10 - Ensure XDMCP is not enabled"""
+        # Check if GDM3 is installed
+        returncode, _, _ = self.run_command(['dpkg', '-s', 'gdm3'])
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.10",
+                title="Ensure XDMCP is not enabled",
+                status=Status.SKIP,
+                severity=Severity.HIGH,
+                message="GDM3 is not installed"
+            ))
+            return
+
+        config_path = '/etc/gdm3/custom.conf'
+
+        if not self.file_exists(config_path):
+            # No custom config means XDMCP is disabled by default
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.10",
+                title="Ensure XDMCP is not enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="XDMCP is disabled (no custom configuration)"
+            ))
+            return
+
+        content = self.read_file(config_path)
+        if not content:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.10",
+                title="Ensure XDMCP is not enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Cannot read {config_path}"
+            ))
+            return
+
+        # Check if XDMCP is enabled
+        xdmcp_enabled = False
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith('Enable=true') or line.startswith('Enable = true'):
+                # Check if this is in the [xdmcp] section (need to track sections)
+                if '[xdmcp]' in content.lower():
+                    xdmcp_enabled = True
+                    break
+
+        if not xdmcp_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.10",
+                title="Ensure XDMCP is not enabled",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="XDMCP is disabled"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.7.10",
+                title="Ensure XDMCP is not enabled",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="XDMCP is enabled",
+                details="XDMCP is an insecure protocol that sends authentication in cleartext",
+                remediation=f"Edit {config_path} and set Enable=false in [xdmcp] section or remove the section"
+            ))
+
+    def run_all_checks(self):
+        """Run all GDM configuration checks"""
+        self.check_gdm_removed_or_configured()
+        self.check_gdm_banner()
+        self.check_gdm_disable_user_list()
+        self.check_gdm_screen_lock_idle()
+        self.check_gdm_screen_lock_override()
+        self.check_gdm_automount_disabled()
+        self.check_gdm_automount_override()
+        self.check_gdm_autorun_never()
+        self.check_gdm_autorun_override()
+        self.check_xdmcp_disabled()
 
 
 class UserAuditor(BaseAuditor):
@@ -6728,9 +7757,21 @@ class DebianCISAudit:
         bootloader_auditor = BootloaderAuditor(self.reporter)
         bootloader_auditor.run_all_checks()
 
+        print("[*] Running GNOME Display Manager Checks...")
+        gdm_auditor = GDMAuditor(self.reporter)
+        gdm_auditor.run_all_checks()
+
         print("[*] Running Service Checks...")
         service_auditor = ServiceAuditor(self.reporter)
         service_auditor.run_all_checks()
+
+        print("[*] Running Time Synchronization Checks...")
+        timesync_auditor = TimeSyncAuditor(self.reporter)
+        timesync_auditor.run_all_checks()
+
+        print("[*] Running Job Scheduler Checks...")
+        jobscheduler_auditor = JobSchedulerAuditor(self.reporter)
+        jobscheduler_auditor.run_all_checks()
 
         print("[*] Running Network Checks...")
         network_auditor = NetworkAuditor(self.reporter)

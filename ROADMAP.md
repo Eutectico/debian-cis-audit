@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 208 (~52%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 Firewall ABGESCHLOSSEN! ✅ | Phase 4 AppArmor & Bootloader ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 234 (~58%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅
 
 ---
 
@@ -372,14 +372,55 @@
 
 </details>
 
-### GNOME Display Manager (1.7.x)
-- [ ] 1.7.x - GDM Configuration (10 Checks)
+### GNOME Display Manager (1.7.x) ✅ ABGESCHLOSSEN - 10 Checks
 
-### Time Synchronization (2.3.x)
-- [ ] 2.3.x - Time Sync (7 Checks)
+<details>
+<summary>GDM Configuration (1.7.x) - 10 Checks ✅</summary>
 
-### Job Schedulers (2.4.x)
-- [ ] 2.4.x - Cron & At (9 Checks)
+- [x] 1.7.1 - Ensure GDM is removed or login is configured
+- [x] 1.7.2 - Ensure GDM login banner is configured
+- [x] 1.7.3 - Ensure GDM disable-user-list option is enabled
+- [x] 1.7.4 - Ensure GDM screen locks when the user is idle
+- [x] 1.7.5 - Ensure GDM screen locks cannot be overridden
+- [x] 1.7.6 - Ensure GDM automatic mounting of removable media is disabled
+- [x] 1.7.7 - Ensure GDM disabling automatic mounting is not overridden
+- [x] 1.7.8 - Ensure GDM autorun-never is enabled
+- [x] 1.7.9 - Ensure GDM autorun-never is not overridden
+- [x] 1.7.10 - Ensure XDMCP is not enabled
+
+</details>
+
+### Time Synchronization (2.3.x) ✅ ABGESCHLOSSEN - 7 Checks
+
+<details>
+<summary>Time Sync Configuration (2.3.x) - 7 Checks ✅</summary>
+
+- [x] 2.3.1.1 - Ensure systemd-timesyncd is installed
+- [x] 2.3.1.2 - Ensure systemd-timesyncd is enabled and running
+- [x] 2.3.1.3 - Ensure systemd-timesyncd is configured
+- [x] 2.3.2.1 - Ensure chrony is installed
+- [x] 2.3.2.2 - Ensure chrony is enabled and running
+- [x] 2.3.2.3 - Ensure chrony is configured
+- [x] 2.3.3 - Ensure only one time synchronization daemon is in use
+
+</details>
+
+### Job Schedulers (2.4.x) ✅ ABGESCHLOSSEN - 9 Checks
+
+<details>
+<summary>Cron & At Configuration (2.4.x) - 9 Checks ✅</summary>
+
+- [x] 2.4.1.1 - Ensure cron daemon is installed
+- [x] 2.4.1.2 - Ensure cron daemon is enabled and running
+- [x] 2.4.1.3 - Ensure permissions on /etc/crontab are configured
+- [x] 2.4.1.4 - Ensure permissions on /etc/cron.hourly are configured
+- [x] 2.4.1.5 - Ensure permissions on /etc/cron.daily are configured
+- [x] 2.4.1.6 - Ensure permissions on /etc/cron.weekly are configured
+- [x] 2.4.1.7 - Ensure permissions on /etc/cron.monthly are configured
+- [x] 2.4.1.8 - Ensure permissions on /etc/cron.d are configured
+- [x] 2.4.2.1 - Ensure at is restricted to authorized users
+
+</details>
 
 ---
 
@@ -407,18 +448,15 @@
 
 **Checks nach Phase 3:** 180 Checks (~45%) ✅
 
-### 🎯 Phase 4: Advanced Features (v2.1.0+) - TEILWEISE ABGESCHLOSSEN
-**28 Checks implementiert:**
+### 🎯 Phase 4: Advanced Features (v2.1.0 - v2.4.0) ✅ ABGESCHLOSSEN
+**54 Checks implementiert:**
 1. **Firewall Configuration (4.x)** (22 Checks) - UFW, nftables, iptables ✅
 2. **AppArmor & Bootloader (1.3.x, 1.4.x)** (6 Checks) - MAC & Bootloader Security ✅
+3. **GNOME Display Manager (1.7.x)** (10 Checks) - GDM Configuration ✅
+4. **Time Synchronization (2.3.x)** (7 Checks) - systemd-timesyncd & chrony ✅
+5. **Job Schedulers (2.4.x)** (9 Checks) - cron & at ✅
 
-**Nächste Priorität:**
-3. **Time Synchronization (2.3.x)** (7 Checks)
-4. **Job Schedulers (2.4.x)** (9 Checks)
-5. **GNOME Display Manager (1.7.x)** (10 Checks)
-6. **Alle verbleibenden Checks**
-
-**Checks nach Phase 4 (AppArmor & Bootloader):** 208 Checks (~52%)
+**Checks nach Phase 4:** 234 Checks (~58%)
 **Ziel:** 400+ Checks (~100%)
 
 ---
@@ -440,14 +478,14 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
-| 1. Initial Setup (Filesystems, AppArmor, Bootloader) | 41 | 100+ | 41% |
-| 2. Services | 25 | 40+ | 62% |
+| 1. Initial Setup (Filesystems, AppArmor, Bootloader, GDM) | 51 | 120+ | 42% |
+| 2. Services (Services, Time Sync, Job Schedulers) | 41 | 60+ | 68% |
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 22 | 40+ | 55% |
 | 5. Access Control (SSH & PAM) | 36 | 100+ | 36% |
 | 6. Logging/Auditing | 51 | 80+ | 64% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **208** | **400+** | **~52%** |
+| **TOTAL** | **234** | **400+** | **~58%** |
 
 ---
 
@@ -509,10 +547,18 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Bootloader Security (1.4.x - 2 Checks)
 - **Gesamt:** 208 Checks (~52% Coverage)
 
-### v2.3.0 (Geplant)
+### v2.3.0 ✅ ABGESCHLOSSEN (2025-11-06)
+- GNOME Display Manager (1.7.x - 10 Checks)
 - Time Synchronization (2.3.x - 7 Checks)
+- **Gesamt:** 225 Checks (~56% Coverage)
+
+### v2.4.0 ✅ ABGESCHLOSSEN (2025-11-06)
 - Job Schedulers (2.4.x - 9 Checks)
-- **Geplant gesamt:** 224+ Checks
+- **Gesamt:** 234 Checks (~58% Coverage)
+
+### v3.0.0 (Geplant)
+- Weitere CIS Checks
+- **Geplant gesamt:** 300+ Checks (~75% Coverage)
 
 ---
 
