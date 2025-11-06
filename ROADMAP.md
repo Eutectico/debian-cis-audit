@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 270 (~67%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅ | Phase 5 Sprint 1 ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 279 (~70%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅ | Phase 5 Sprint 2 ABGESCHLOSSEN! ✅
 
 ---
 
@@ -458,14 +458,15 @@
 
 **Checks nach Phase 4:** 234 Checks (~58%)
 
-### 🚀 Phase 5: High Coverage Goal (v2.6.0 - v3.x) - 🔄 IN ARBEIT
+### 🚀 Phase 5: High Coverage Goal (v2.5.0 - v2.7.0) - 🔄 IN ARBEIT
 **Ziel:** 300+ Checks (~75% Coverage)
 
 Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+ Coverage zu erreichen.
 
-**Status:** 36 Checks implementiert (270 gesamt / ~67% Coverage)
+**Status:** 45 Checks implementiert (279 gesamt / ~70% Coverage)
 - **v2.5.0:** 19 Checks (Warning Banners, Software Updates, Network Devices/Protocols, Filesystem Config)
 - **v2.6.0:** 17 Checks (sudo Configuration, IPv6 & TCP Wrappers) ✅ Sprint 1 ABGESCHLOSSEN
+- **v2.7.0:** 9 Checks (User Environment, Filesystem Integrity) ✅ Sprint 2 ABGESCHLOSSEN
 
 #### Priorität 1: Remaining Initial Setup (1.x) - ✅ TEILWEISE ABGESCHLOSSEN (5/20 Checks)
 
@@ -487,12 +488,12 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 <details>
-<summary>Filesystem Integrity (1.5.x) - 4 Checks</summary>
+<summary>Filesystem Integrity (1.5.x) - 4 Checks ✅ ABGESCHLOSSEN (v2.7.0)</summary>
 
-- [ ] 1.5.1 - Ensure bootloader config is not overwritten
-- [ ] 1.5.2 - Ensure permissions on bootloader config are configured
-- [ ] 1.5.3 - Ensure authentication required for single user mode
-- [ ] 1.5.4 - Ensure core dumps are restricted
+- [x] 1.5.1 - Ensure bootloader config is not overwritten
+- [x] 1.5.2 - Ensure permissions on bootloader config are configured
+- [x] 1.5.3 - Ensure authentication required for single user mode
+- [x] 1.5.4 - Ensure core dumps are restricted
 
 </details>
 
@@ -534,13 +535,13 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 <details>
-<summary>Additional User Environment (5.5.x) - 5 Checks</summary>
+<summary>Additional User Environment (5.5.x) - 5 Checks ✅ ABGESCHLOSSEN (v2.7.0)</summary>
 
-- [ ] 5.5.1 - Ensure default user shell timeout is configured
-- [ ] 5.5.2 - Ensure default user umask is configured
-- [ ] 5.5.3 - Ensure tmout is configured
-- [ ] 5.5.4 - Ensure default group for the root account is GID 0
-- [ ] 5.5.5 - Ensure root is the only UID 0 account
+- [x] 5.5.1 - Ensure default user shell timeout is configured
+- [x] 5.5.2 - Ensure default user umask is configured
+- [x] 5.5.3 - Ensure tmout is configured
+- [x] 5.5.4 - Ensure default group for the root account is GID 0
+- [x] 5.5.5 - Ensure root is the only UID 0 account
 
 </details>
 
@@ -632,7 +633,7 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 #### Phase 5 Zusammenfassung:
-- **Neue Checks implementiert:** 36 Checks ✅
+- **Neue Checks implementiert:** 45 Checks ✅
   - **v2.5.0 (19 Checks):**
     - Warning Banners (1.8.x): 6 Checks ✅
     - Software Updates (1.2.x): 2 Checks ✅
@@ -642,11 +643,14 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
   - **v2.6.0 (17 Checks) - Sprint 1:**
     - sudo Configuration (5.2.x): 10 Checks ✅
     - IPv6 & TCP Wrappers (3.4.x): 7 Checks ✅
-- **Verbleibende Phase 5 Checks:** 30-40 Checks
-- **Aktueller Stand:** 270 Checks (~67% Coverage)
+  - **v2.7.0 (9 Checks) - Sprint 2:**
+    - User Environment & Root Security (5.5.x): 5 Checks ✅
+    - Filesystem Integrity & Bootloader (1.5.x): 4 Checks ✅
+- **Verbleibende Phase 5 Checks:** 21-31 Checks
+- **Aktueller Stand:** 279 Checks (~70% Coverage) 🎉
 - **Ziel nach Phase 5:** 300-310 Checks (~75% Coverage)
-- **Fokus:** User Environment (5.5.x), Filesystem Integrity (1.5.x), Additional Services
-- **Timeline:** v2.7.0 - v3.0.0
+- **Fokus:** Additional User Accounts (5.6.x), Additional Services (2.2.x), Optional MACs
+- **Timeline:** v2.8.0 - v3.0.0
 
 ---
 
@@ -806,10 +810,22 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
   - hosts.allow/hosts.deny Configuration & Permissions
 - **Gesamt:** 270 Checks (~67% Coverage)
 
-### v2.7.0 (In Arbeit) - Sprint 2
-- User Environment (5.5.x - 5 Checks)
-- Filesystem Integrity (1.5.x - 4 Checks)
-- **Geplant gesamt:** 279+ Checks (~70% Coverage)
+### v2.7.0 ✅ ABGESCHLOSSEN (2025-11-06) - Sprint 2
+- User Environment & Root Security (5.5.x - 5 Checks)
+  - Shell Timeout (TMOUT) Configuration
+  - Default umask Configuration
+  - Root Account GID 0 Validation
+  - UID 0 Uniqueness Check
+- Filesystem Integrity & Bootloader (1.5.x - 4 Checks)
+  - Bootloader Configuration Protection
+  - Single-User Mode Authentication
+  - Core Dump Restrictions
+- **Gesamt:** 279 Checks (~70% Coverage) 🎉
+
+### v2.8.0 (In Arbeit) - Sprint 3
+- Additional User Account Checks (5.6.x - 2 Checks)
+- Optional: Additional Services (2.2.x - 1 Check)
+- **Geplant gesamt:** 282+ Checks (~70-71% Coverage)
 
 ### v3.0.0 (Geplant)
 - Weitere CIS Checks (Phase 5 Abschluss)
