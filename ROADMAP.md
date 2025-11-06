@@ -5,7 +5,7 @@
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
 - **Aktuell implementiert:** 180 (~45%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅ | Phase 3 Audit File Access ABGESCHLOSSEN! ✅ | Phase 3 Audit Rules ABGESCHLOSSEN! ✅ | Phase 3 PAM & Password Policy ABGESCHLOSSEN! ✅
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅
 
 ---
 
@@ -192,7 +192,9 @@
 
 ---
 
-## 🔄 Phase 3: Medium Priority ✅ TEILWEISE ABGESCHLOSSEN
+## 🔄 Phase 3: Medium Priority ✅ ABGESCHLOSSEN
+
+**79 Checks implementiert** (System Maintenance, System Logging, Logging & Auditing, PAM & Password Policy)
 
 ### System Maintenance (7.x) ✅ ABGESCHLOSSEN
 **File Permissions (7.1.x) - 9 Checks**
@@ -330,7 +332,11 @@
 
 ## 📈 Implementierungs-Strategie
 
-### Kurzfristig (v1.1.0 - v1.3.0) ✅ ABGESCHLOSSEN
+### ✅ Phase 1: Foundation (v1.0.0) - ABGESCHLOSSEN
+**14 Checks** - Grundlegende Auditd, Filesystem, Services, Network, User/Group Checks
+
+### ✅ Phase 2: High Priority (v1.1.0 - v1.3.0) - ABGESCHLOSSEN
+**88 Checks** implementiert:
 1. **SSH Configuration** (22 Checks) - Kritisch für Security ✅
 2. **Filesystem Partitions** (26 Checks) - Wichtig für Availability ✅
 3. **Filesystem Kernel Modules** (9 Checks) - Security ✅
@@ -339,19 +345,22 @@
 
 **Checks nach Phase 2:** 102 Checks (~25%)
 
-### Mittelfristig (v1.4.0 - v2.0.0) ✅ ABGESCHLOSSEN
-1. **System File Permissions** (erweitern auf 13 Checks) ✅
-2. **Logging & Auditing** (erweitern auf 80+ Checks) ✅
-3. **PAM & Password Policy** (14 Checks) ✅
+### ✅ Phase 3: Medium Priority (v1.4.0 - v2.0.0) - ABGESCHLOSSEN
+**79 Checks** implementiert:
+1. **System Maintenance** (17 Checks) - File Permissions & User/Group ✅
+2. **System Logging** (11 Checks) - journald & rsyslog ✅
+3. **Logging & Auditing** (37 Checks) - Audit Rules, Retention, File Access, Integrity ✅
+4. **PAM & Password Policy** (14 Checks) - PAM Configuration & User Accounts ✅
 
 **Checks nach Phase 3:** 180 Checks (~45%) ✅
 
-### Langfristig (v2.1.0+)
-1. **Firewall Configuration** (32 Checks)
-2. **AppArmor & Bootloader** (6 Checks)
-3. **Time Synchronization** (7 Checks)
-4. **Job Schedulers** (9 Checks)
-5. **GNOME Display Manager** (10 Checks)
+### 🎯 Phase 4: Advanced Features (v2.1.0+) - GEPLANT
+**Nächste Priorität:**
+1. **Firewall Configuration (4.x)** (32+ Checks) - UncomplicatedFirewall, nftables, iptables
+2. **AppArmor & Bootloader (1.3.x, 1.4.x)** (6 Checks)
+3. **Time Synchronization (2.3.x)** (7 Checks)
+4. **Job Schedulers (2.4.x)** (9 Checks)
+5. **GNOME Display Manager (1.7.x)** (10 Checks)
 6. **Alle verbleibenden Checks**
 
 **Ziel:** 400+ Checks (~100%)
