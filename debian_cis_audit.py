@@ -3772,6 +3772,418 @@ class FilesystemPartitionAuditor(BaseAuditor):
         self.check_varlogaudit_noexec()
 
 
+class AppArmorAuditor(BaseAuditor):
+    """Auditor for AppArmor configuration checks (1.3.1.x)"""
+
+    def check_apparmor_installed(self):
+        """1.3.1.1 - Ensure AppArmor is installed"""
+        # Check if apparmor package is installed
+        apparmor_installed = False
+        apparmor_utils_installed = False
+
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'apparmor'])
+        if returncode == 0:
+            apparmor_installed = True
+
+        returncode, stdout, stderr = self.run_command(['dpkg', '-s', 'apparmor-utils'])
+        if returncode == 0:
+            apparmor_utils_installed = True
+
+        if apparmor_installed and apparmor_utils_installed:
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.1",
+                title="Ensure AppArmor is installed",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="AppArmor and apparmor-utils are installed"
+            ))
+        else:
+            missing = []
+            if not apparmor_installed:
+                missing.append("apparmor")
+            if not apparmor_utils_installed:
+                missing.append("apparmor-utils")
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.1",
+                title="Ensure AppArmor is installed",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message=f"Missing packages: {', '.join(missing)}",
+                details="AppArmor provides Mandatory Access Control (MAC) to restrict program capabilities",
+                remediation=f"apt install {' '.join(missing)}"
+            ))
+
+    def check_apparmor_bootloader(self):
+        """1.3.1.2 - Ensure AppArmor is enabled in the bootloader configuration"""
+        # Check GRUB configuration for AppArmor
+        grub_config_paths = [
+            '/boot/grub/grub.cfg',
+            '/boot/grub2/grub.cfg'
+        ]
+
+        grub_default_path = '/etc/default/grub'
+        apparmor_enabled = False
+
+        # First check /etc/default/grub for the setting
+        if self.file_exists(grub_default_path):
+            content = self.read_file(grub_default_path)
+            if content:
+                # Check if apparmor=1 and security=apparmor are in GRUB_CMDLINE_LINUX
+                for line in content.splitlines():
+                    if line.strip().startswith('GRUB_CMDLINE_LINUX'):
+                        if 'apparmor=1' in line and 'security=apparmor' in line:
+                            apparmor_enabled = True
+                            break
+
+        # Also check the actual grub.cfg
+        if not apparmor_enabled:
+            for grub_path in grub_config_paths:
+                if self.file_exists(grub_path):
+                    content = self.read_file(grub_path)
+                    if content:
+                        # Check kernel command lines
+                        for line in content.splitlines():
+                            if 'linux' in line.lower() and '/boot/vmlinuz' in line:
+                                if 'apparmor=1' in line and 'security=apparmor' in line:
+                                    apparmor_enabled = True
+                                    break
+                    if apparmor_enabled:
+                        break
+
+        if apparmor_enabled:
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.2",
+                title="Ensure AppArmor is enabled in the bootloader configuration",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="AppArmor is enabled in bootloader configuration"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.2",
+                title="Ensure AppArmor is enabled in the bootloader configuration",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="AppArmor is not enabled in bootloader configuration",
+                details="AppArmor must be enabled at boot time to provide MAC",
+                remediation="Edit /etc/default/grub and add 'apparmor=1 security=apparmor' to GRUB_CMDLINE_LINUX, then run 'update-grub'"
+            ))
+
+    def check_apparmor_profiles_mode(self):
+        """1.3.1.3 - Ensure all AppArmor Profiles are in enforce or complain mode"""
+        # Check that no profiles are unconfined
+        returncode, stdout, stderr = self.run_command(['aa-status', '--json'])
+
+        if returncode != 0:
+            # aa-status not available or error
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.3",
+                title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Cannot check AppArmor profile status",
+                details="aa-status command failed or AppArmor not running",
+                remediation="Ensure AppArmor is installed and running: systemctl status apparmor"
+            ))
+            return
+
+        try:
+            import json as json_module
+            status_data = json_module.loads(stdout)
+
+            # Count profiles in different modes
+            enforce_count = len(status_data.get('profiles', {}).get('enforce', []))
+            complain_count = len(status_data.get('profiles', {}).get('complain', []))
+            unconfined_count = len(status_data.get('processes', {}).get('unconfined', []))
+
+            total_profiles = enforce_count + complain_count
+
+            if total_profiles > 0 and unconfined_count == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.3",
+                    title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"All profiles are in enforce or complain mode ({enforce_count} enforcing, {complain_count} complaining)"
+                ))
+            elif total_profiles == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.3",
+                    title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="No AppArmor profiles are loaded",
+                    details="AppArmor is installed but no profiles are active",
+                    remediation="Load AppArmor profiles for critical services"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.3",
+                    title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message=f"Some processes are unconfined ({unconfined_count} unconfined)",
+                    details=f"Profiles: {enforce_count} enforcing, {complain_count} complaining",
+                    remediation="Review unconfined processes with 'aa-status' and create/enable profiles"
+                ))
+        except Exception as e:
+            # Fallback to text parsing if JSON parsing fails
+            returncode, stdout, stderr = self.run_command(['aa-status'])
+            if returncode == 0:
+                lines = stdout.splitlines()
+                has_profiles = False
+                for line in lines:
+                    if 'profiles are in enforce mode' in line or 'profiles are in complain mode' in line:
+                        has_profiles = True
+                        break
+
+                if has_profiles:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.3.1.3",
+                        title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="AppArmor profiles are loaded (check output for details)",
+                        details="Run 'aa-status' for detailed profile information"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.3.1.3",
+                        title="Ensure all AppArmor Profiles are in enforce or complain mode",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message="Cannot determine AppArmor profile status",
+                        details=f"Error parsing aa-status output: {str(e)}"
+                    ))
+
+    def check_apparmor_profiles_enforcing(self):
+        """1.3.1.4 - Ensure all AppArmor Profiles are enforcing"""
+        # Check that all profiles are in enforce mode (not complain mode)
+        returncode, stdout, stderr = self.run_command(['aa-status', '--json'])
+
+        if returncode != 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.3.1.4",
+                title="Ensure all AppArmor Profiles are enforcing",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message="Cannot check AppArmor profile enforcement status",
+                details="aa-status command failed or AppArmor not running",
+                remediation="Ensure AppArmor is installed and running"
+            ))
+            return
+
+        try:
+            import json as json_module
+            status_data = json_module.loads(stdout)
+
+            enforce_count = len(status_data.get('profiles', {}).get('enforce', []))
+            complain_count = len(status_data.get('profiles', {}).get('complain', []))
+            complain_profiles = status_data.get('profiles', {}).get('complain', [])
+
+            if complain_count == 0 and enforce_count > 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.4",
+                    title="Ensure all AppArmor Profiles are enforcing",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"All {enforce_count} profiles are in enforce mode"
+                ))
+            elif enforce_count == 0 and complain_count == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.4",
+                    title="Ensure all AppArmor Profiles are enforcing",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="No AppArmor profiles are loaded",
+                    remediation="Load and enforce AppArmor profiles for critical services"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.3.1.4",
+                    title="Ensure all AppArmor Profiles are enforcing",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"{complain_count} profiles are in complain mode (should be enforcing)",
+                    details=f"Complaining profiles: {', '.join(complain_profiles[:5])}{'...' if len(complain_profiles) > 5 else ''}",
+                    remediation="Set profiles to enforce mode: aa-enforce /etc/apparmor.d/*"
+                ))
+        except Exception as e:
+            # Fallback to text parsing
+            returncode, stdout, stderr = self.run_command(['aa-status'])
+            if returncode == 0:
+                complain_match = re.search(r'(\d+)\s+profiles are in complain mode', stdout)
+                enforce_match = re.search(r'(\d+)\s+profiles are in enforce mode', stdout)
+
+                complain_count = int(complain_match.group(1)) if complain_match else 0
+                enforce_count = int(enforce_match.group(1)) if enforce_match else 0
+
+                if complain_count == 0 and enforce_count > 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.3.1.4",
+                        title="Ensure all AppArmor Profiles are enforcing",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"All {enforce_count} profiles are in enforce mode"
+                    ))
+                elif complain_count > 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.3.1.4",
+                        title="Ensure all AppArmor Profiles are enforcing",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message=f"{complain_count} profiles in complain mode",
+                        remediation="Set profiles to enforce mode: aa-enforce /etc/apparmor.d/*"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.3.1.4",
+                        title="Ensure all AppArmor Profiles are enforcing",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="Cannot determine enforcement status"
+                    ))
+
+    def run_all_checks(self):
+        """Run all AppArmor checks"""
+        self.check_apparmor_installed()
+        self.check_apparmor_bootloader()
+        self.check_apparmor_profiles_mode()
+        self.check_apparmor_profiles_enforcing()
+
+
+class BootloaderAuditor(BaseAuditor):
+    """Auditor for bootloader security configuration (1.4.x)"""
+
+    def check_bootloader_password(self):
+        """1.4.1 - Ensure bootloader password is set"""
+        # Check GRUB configuration for password protection
+        grub_config_paths = [
+            '/boot/grub/grub.cfg',
+            '/boot/grub2/grub.cfg'
+        ]
+
+        grub_user_cfg = '/boot/grub/user.cfg'
+        password_set = False
+
+        # Check for password in grub.cfg
+        for grub_path in grub_config_paths:
+            if self.file_exists(grub_path):
+                content = self.read_file(grub_path)
+                if content:
+                    # Look for password_pbkdf2 or password entries
+                    if 'password_pbkdf2' in content or 'set superusers' in content:
+                        password_set = True
+                        break
+
+        # Also check user.cfg which is sometimes used for passwords
+        if not password_set and self.file_exists(grub_user_cfg):
+            content = self.read_file(grub_user_cfg)
+            if content and ('password_pbkdf2' in content or 'GRUB2_PASSWORD' in content):
+                password_set = True
+
+        if password_set:
+            self.reporter.add_result(AuditResult(
+                check_id="1.4.1",
+                title="Ensure bootloader password is set",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="Bootloader password is configured"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.4.1",
+                title="Ensure bootloader password is set",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Bootloader password is not set",
+                details="Setting a bootloader password prevents unauthorized users from modifying boot parameters or accessing single-user mode",
+                remediation="Create encrypted password with 'grub-mkpasswd-pbkdf2' and add to /etc/grub.d/40_custom, then run 'update-grub'"
+            ))
+
+    def check_bootloader_config_permissions(self):
+        """1.4.2 - Ensure access to bootloader config is configured"""
+        # Check permissions on GRUB configuration files
+        grub_config_paths = [
+            '/boot/grub/grub.cfg',
+            '/boot/grub2/grub.cfg'
+        ]
+
+        issues = []
+        checked_files = []
+
+        for grub_path in grub_config_paths:
+            if self.file_exists(grub_path):
+                checked_files.append(grub_path)
+                stat_info = self.get_file_stat(grub_path)
+
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+                    owner_uid = stat_info.st_uid
+                    group_gid = stat_info.st_gid
+
+                    # Check owner is root (UID 0)
+                    if owner_uid != 0:
+                        issues.append(f"{grub_path}: Owner is not root (UID {owner_uid})")
+
+                    # Check group is root (GID 0)
+                    if group_gid != 0:
+                        issues.append(f"{grub_path}: Group is not root (GID {group_gid})")
+
+                    # Check permissions are 0400 or 0600 (read-only for owner, no access for others)
+                    # Mode should be 0o400 (r--------) or 0o600 (rw-------)
+                    if mode & 0o077:  # Check if group or others have any permissions
+                        issues.append(f"{grub_path}: Permissions {oct(mode)} are too permissive (should be 0400 or 0600)")
+
+                    if mode & 0o200 and mode != 0o600:  # If writable but not exactly 0600
+                        issues.append(f"{grub_path}: File is writable but permissions {oct(mode)} are not 0600")
+
+        # Also check /boot/grub/ directory permissions
+        grub_dir = '/boot/grub'
+        if self.file_exists(grub_dir):
+            checked_files.append(grub_dir)
+            stat_info = self.get_file_stat(grub_dir)
+            if stat_info:
+                mode = stat.S_IMODE(stat_info.st_mode)
+                if mode & 0o077:  # Check if group or others have write/execute
+                    if mode & 0o022:  # Others have write permission
+                        issues.append(f"{grub_dir}: Directory permissions {oct(mode)} allow group/other write access")
+
+        if len(checked_files) == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.4.2",
+                title="Ensure access to bootloader config is configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="No bootloader configuration files found",
+                details="Cannot verify permissions on non-existent files"
+            ))
+        elif len(issues) == 0:
+            self.reporter.add_result(AuditResult(
+                check_id="1.4.2",
+                title="Ensure access to bootloader config is configured",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message=f"Bootloader configuration files have correct permissions ({len(checked_files)} files checked)"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="1.4.2",
+                title="Ensure access to bootloader config is configured",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Bootloader configuration files have incorrect permissions",
+                details="\n".join(issues),
+                remediation="Fix permissions: chown root:root /boot/grub/grub.cfg && chmod 0400 /boot/grub/grub.cfg"
+            ))
+
+    def run_all_checks(self):
+        """Run all bootloader security checks"""
+        self.check_bootloader_password()
+        self.check_bootloader_config_permissions()
+
+
 class UserAuditor(BaseAuditor):
     """Auditor for user and group configurations"""
 
@@ -5156,6 +5568,1117 @@ class PAMAuditor(BaseAuditor):
         self.check_root_timeout()
 
 
+class FirewallAuditor(BaseAuditor):
+    """Firewall configuration auditor for CIS checks 4.x"""
+
+    # UFW Checks (4.2.x)
+    def check_ufw_installed(self):
+        """4.2.1 - Ensure ufw is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'ufw'])
+
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.1",
+                    title="Ensure ufw is installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="ufw ist installiert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.1",
+                    title="Ensure ufw is installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="ufw ist nicht installiert",
+                    remediation="apt install ufw"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.1",
+                title="Ensure ufw is installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_iptables_persistent_not_installed(self):
+        """4.2.2 - Ensure iptables-persistent is not installed with ufw"""
+        try:
+            # Check if ufw is installed first
+            returncode_ufw, _, _ = self.run_command(['dpkg', '-s', 'ufw'])
+
+            if returncode_ufw != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.2",
+                    title="Ensure iptables-persistent is not installed with ufw",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="ufw ist nicht installiert, Check nicht relevant"
+                ))
+                return
+
+            # Check if iptables-persistent is installed
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'iptables-persistent'])
+
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.2",
+                    title="Ensure iptables-persistent is not installed with ufw",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="iptables-persistent ist installiert (Konflikt mit ufw)",
+                    remediation="apt purge iptables-persistent"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.2",
+                    title="Ensure iptables-persistent is not installed with ufw",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="iptables-persistent ist nicht installiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.2",
+                title="Ensure iptables-persistent is not installed with ufw",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_service_enabled(self):
+        """4.2.3 - Ensure ufw service is enabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'ufw'])
+
+            if stdout.strip() == 'enabled':
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.3",
+                    title="Ensure ufw service is enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="ufw service ist aktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.3",
+                    title="Ensure ufw service is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"ufw service ist nicht aktiviert: {stdout.strip()}",
+                    remediation="systemctl enable ufw"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.3",
+                title="Ensure ufw service is enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_loopback_configured(self):
+        """4.2.4 - Ensure ufw loopback traffic is configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['ufw', 'status', 'verbose'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.4",
+                    title="Ensure ufw loopback traffic is configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="ufw status konnte nicht abgerufen werden"
+                ))
+                return
+
+            issues = []
+
+            # Check for loopback allow rules
+            if 'Anywhere on lo' not in stdout and 'ALLOW IN' not in stdout:
+                issues.append("Loopback ALLOW IN Regel fehlt")
+
+            if 'Anywhere' not in stdout or 'ALLOW OUT' not in stdout or 'on lo' not in stdout:
+                issues.append("Loopback ALLOW OUT Regel fehlt")
+
+            # Check for deny from loopback network
+            if '127.0.0.0/8' not in stdout or 'DENY IN' not in stdout:
+                issues.append("DENY Regel für 127.0.0.0/8 fehlt")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.4",
+                    title="Ensure ufw loopback traffic is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Konfiguration unvollständig",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="ufw allow in on lo && ufw allow out on lo && ufw deny in from 127.0.0.0/8"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.4",
+                    title="Ensure ufw loopback traffic is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Traffic ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.4",
+                title="Ensure ufw loopback traffic is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_outbound_connections(self):
+        """4.2.5 - Ensure ufw outbound connections are configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['ufw', 'status', 'verbose'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.5",
+                    title="Ensure ufw outbound connections are configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="ufw status konnte nicht abgerufen werden"
+                ))
+                return
+
+            # Check for default outbound policy or specific rules
+            has_outbound_rules = False
+
+            if 'Default: deny (outgoing)' in stdout or 'Default: reject (outgoing)' in stdout:
+                # If default is deny/reject, there should be explicit allow rules
+                if 'ALLOW OUT' in stdout:
+                    has_outbound_rules = True
+            elif 'Default: allow (outgoing)' in stdout:
+                # Default allow is acceptable but should be noted
+                has_outbound_rules = True
+
+            if has_outbound_rules:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.5",
+                    title="Ensure ufw outbound connections are configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Ausgehende Verbindungen sind konfiguriert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.5",
+                    title="Ensure ufw outbound connections are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Keine spezifischen Regeln für ausgehende Verbindungen gefunden",
+                    remediation="Konfigurieren Sie ufw-Regeln für ausgehende Verbindungen"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.5",
+                title="Ensure ufw outbound connections are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_firewall_rules(self):
+        """4.2.6 - Ensure ufw firewall rules exist for all open ports"""
+        try:
+            # Get listening ports
+            returncode_ss, stdout_ss, _ = self.run_command(['ss', '-4tuln'])
+
+            if returncode_ss != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.6",
+                    title="Ensure ufw firewall rules exist for all open ports",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Konnte offene Ports nicht ermitteln"
+                ))
+                return
+
+            # Get UFW rules
+            returncode_ufw, stdout_ufw, _ = self.run_command(['ufw', 'status', 'numbered'])
+
+            if returncode_ufw != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.6",
+                    title="Ensure ufw firewall rules exist for all open ports",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="ufw status konnte nicht abgerufen werden"
+                ))
+                return
+
+            # Parse listening ports (simplified check)
+            listening_ports = set()
+            for line in stdout_ss.splitlines():
+                if 'LISTEN' in line:
+                    parts = line.split()
+                    if len(parts) > 4:
+                        addr_port = parts[4]
+                        if ':' in addr_port:
+                            port = addr_port.split(':')[-1]
+                            if port.isdigit():
+                                listening_ports.add(port)
+
+            # Check if UFW has rules (simplified check)
+            if listening_ports and ('ALLOW' in stdout_ufw or 'Status: active' in stdout_ufw):
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.6",
+                    title="Ensure ufw firewall rules exist for all open ports",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"Firewall-Regeln vorhanden ({len(listening_ports)} offene Ports gefunden)",
+                    details=f"Offene Ports: {', '.join(sorted(listening_ports))}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.6",
+                    title="Ensure ufw firewall rules exist for all open ports",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="Überprüfen Sie, ob alle offenen Ports Firewall-Regeln haben",
+                    details=f"Offene Ports: {', '.join(sorted(listening_ports))}",
+                    remediation="Erstellen Sie ufw-Regeln für alle erforderlichen offenen Ports"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.6",
+                title="Ensure ufw firewall rules exist for all open ports",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_default_deny(self):
+        """4.2.7 - Ensure ufw default deny firewall policy"""
+        try:
+            returncode, stdout, _ = self.run_command(['ufw', 'status', 'verbose'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.7",
+                    title="Ensure ufw default deny firewall policy",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="ufw status konnte nicht abgerufen werden"
+                ))
+                return
+
+            issues = []
+
+            # Check default incoming policy
+            if 'Default: deny (incoming)' not in stdout and 'Default: reject (incoming)' not in stdout:
+                issues.append("Default-Policy für eingehende Verbindungen ist nicht deny/reject")
+
+            # Check default forward policy
+            if 'Default: deny (routed)' not in stdout and 'Default: reject (routed)' not in stdout:
+                issues.append("Default-Policy für weitergeleitete Verbindungen ist nicht deny/reject")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.7",
+                    title="Ensure ufw default deny firewall policy",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist nicht auf deny gesetzt",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="ufw default deny incoming && ufw default deny routed"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.2.7",
+                    title="Ensure ufw default deny firewall policy",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist korrekt auf deny gesetzt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.2.7",
+                title="Ensure ufw default deny firewall policy",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    # nftables Checks (4.3.x)
+    def check_nftables_installed(self):
+        """4.3.1 - Ensure nftables is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'nftables'])
+
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.1",
+                    title="Ensure nftables is installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="nftables ist installiert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.1",
+                    title="Ensure nftables is installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="nftables ist nicht installiert",
+                    remediation="apt install nftables"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.1",
+                title="Ensure nftables is installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_uninstalled_with_nftables(self):
+        """4.3.2 - Ensure ufw is uninstalled or disabled with nftables"""
+        try:
+            # Check if nftables is installed
+            returncode_nft, _, _ = self.run_command(['dpkg', '-s', 'nftables'])
+
+            if returncode_nft != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.2",
+                    title="Ensure ufw is uninstalled or disabled with nftables",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="nftables ist nicht installiert, Check nicht relevant"
+                ))
+                return
+
+            # Check if ufw is installed
+            returncode_ufw, stdout_ufw, _ = self.run_command(['dpkg', '-s', 'ufw'])
+
+            if returncode_ufw == 0 and 'Status: install ok installed' in stdout_ufw:
+                # Check if ufw is disabled
+                returncode_status, stdout_status, _ = self.run_command(['ufw', 'status'])
+                if 'inactive' in stdout_status.lower():
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.3.2",
+                        title="Ensure ufw is uninstalled or disabled with nftables",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="ufw ist installiert aber deaktiviert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.3.2",
+                        title="Ensure ufw is uninstalled or disabled with nftables",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message="ufw ist installiert und aktiv (Konflikt mit nftables)",
+                        remediation="ufw disable oder apt purge ufw"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.2",
+                    title="Ensure ufw is uninstalled or disabled with nftables",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="ufw ist nicht installiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.2",
+                title="Ensure ufw is uninstalled or disabled with nftables",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_iptables_flushed_with_nftables(self):
+        """4.3.3 - Ensure iptables are flushed with nftables"""
+        try:
+            # Check if nftables is active
+            returncode_nft, _, _ = self.run_command(['systemctl', 'is-active', 'nftables'])
+
+            if returncode_nft != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.3",
+                    title="Ensure iptables are flushed with nftables",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="nftables ist nicht aktiv, Check nicht relevant"
+                ))
+                return
+
+            # Check iptables rules
+            returncode_v4, stdout_v4, _ = self.run_command(['iptables', '-L'])
+            returncode_v6, stdout_v6, _ = self.run_command(['ip6tables', '-L'])
+
+            issues = []
+
+            # Check if iptables has rules (besides default chains)
+            if returncode_v4 == 0:
+                lines_v4 = [l for l in stdout_v4.splitlines() if l and not l.startswith('Chain') and not l.startswith('target')]
+                if len(lines_v4) > 0:
+                    issues.append(f"iptables hat {len(lines_v4)} Regeln")
+
+            if returncode_v6 == 0:
+                lines_v6 = [l for l in stdout_v6.splitlines() if l and not l.startswith('Chain') and not l.startswith('target')]
+                if len(lines_v6) > 0:
+                    issues.append(f"ip6tables hat {len(lines_v6)} Regeln")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.3",
+                    title="Ensure iptables are flushed with nftables",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="iptables-Regeln sollten geleert werden bei Verwendung von nftables",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="iptables -F && ip6tables -F"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.3",
+                    title="Ensure iptables are flushed with nftables",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="iptables-Regeln sind geleert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.3",
+                title="Ensure iptables are flushed with nftables",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_table_exists(self):
+        """4.3.4 - Ensure a nftables table exists"""
+        try:
+            returncode, stdout, _ = self.run_command(['nft', 'list', 'tables'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.4",
+                    title="Ensure a nftables table exists",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="nft list tables fehlgeschlagen"
+                ))
+                return
+
+            if stdout.strip():
+                tables = stdout.strip().splitlines()
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.4",
+                    title="Ensure a nftables table exists",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"nftables-Tabellen vorhanden ({len(tables)} Tabelle(n))",
+                    details=f"Tabellen: {', '.join(tables)}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.4",
+                    title="Ensure a nftables table exists",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Keine nftables-Tabellen definiert",
+                    remediation="Erstellen Sie eine nftables-Tabelle: nft create table inet filter"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.4",
+                title="Ensure a nftables table exists",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_base_chains(self):
+        """4.3.5 - Ensure nftables base chains exist"""
+        try:
+            returncode, stdout, _ = self.run_command(['nft', 'list', 'ruleset'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.5",
+                    title="Ensure nftables base chains exist",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="nft list ruleset fehlgeschlagen"
+                ))
+                return
+
+            # Check for base chains
+            required_chains = ['input', 'forward', 'output']
+            found_chains = []
+
+            for chain in required_chains:
+                if f'chain {chain}' in stdout.lower():
+                    found_chains.append(chain)
+
+            missing_chains = [c for c in required_chains if c not in found_chains]
+
+            if missing_chains:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.5",
+                    title="Ensure nftables base chains exist",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Nicht alle Base-Chains vorhanden",
+                    details=f"Fehlende Chains: {', '.join(missing_chains)}",
+                    remediation="Erstellen Sie die Base-Chains: input, forward, output"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.5",
+                    title="Ensure nftables base chains exist",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Alle Base-Chains vorhanden (input, forward, output)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.5",
+                title="Ensure nftables base chains exist",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_loopback_configured(self):
+        """4.3.6 - Ensure nftables loopback traffic is configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['nft', 'list', 'ruleset'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.6",
+                    title="Ensure nftables loopback traffic is configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="nft list ruleset fehlgeschlagen"
+                ))
+                return
+
+            issues = []
+
+            # Check for loopback interface rules
+            if 'iif "lo"' not in stdout and 'iifname "lo"' not in stdout:
+                issues.append("Loopback-Interface-Regel fehlt")
+
+            # Check for loopback IP rules
+            if '127.0.0.0/8' not in stdout and 'ip saddr' not in stdout:
+                issues.append("Loopback-IP-Regel fehlt")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.6",
+                    title="Ensure nftables loopback traffic is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Konfiguration möglicherweise unvollständig",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Konfigurieren Sie Loopback-Regeln in nftables"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.6",
+                    title="Ensure nftables loopback traffic is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Traffic ist konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.6",
+                title="Ensure nftables loopback traffic is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_outbound_established(self):
+        """4.3.7 - Ensure nftables outbound and established connections are configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['nft', 'list', 'ruleset'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.7",
+                    title="Ensure nftables outbound and established connections are configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="nft list ruleset fehlgeschlagen"
+                ))
+                return
+
+            # Check for established/related rules
+            has_established = 'ct state' in stdout and ('established' in stdout or 'related' in stdout)
+            has_outbound = 'chain output' in stdout.lower()
+
+            if has_established and has_outbound:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.7",
+                    title="Ensure nftables outbound and established connections are configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Ausgehende und etablierte Verbindungen sind konfiguriert"
+                ))
+            else:
+                issues = []
+                if not has_established:
+                    issues.append("Keine established/related-Regeln gefunden")
+                if not has_outbound:
+                    issues.append("Keine output-Chain gefunden")
+
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.7",
+                    title="Ensure nftables outbound and established connections are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Konfiguration möglicherweise unvollständig",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Konfigurieren Sie nftables-Regeln für ausgehende Verbindungen"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.7",
+                title="Ensure nftables outbound and established connections are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_default_deny(self):
+        """4.3.8 - Ensure nftables default deny firewall policy"""
+        try:
+            returncode, stdout, _ = self.run_command(['nft', 'list', 'ruleset'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.8",
+                    title="Ensure nftables default deny firewall policy",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="nft list ruleset fehlgeschlagen"
+                ))
+                return
+
+            issues = []
+
+            # Check for drop/reject policies on base chains
+            for chain in ['input', 'forward']:
+                if f'chain {chain}' in stdout.lower():
+                    # Look for policy drop or policy reject
+                    chain_section = stdout.lower()
+                    if f'policy drop' not in chain_section and f'policy reject' not in chain_section and 'drop' not in chain_section:
+                        issues.append(f"{chain}-Chain hat keine drop/reject-Policy")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.8",
+                    title="Ensure nftables default deny firewall policy",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist nicht auf drop/reject gesetzt",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie die Policy auf drop für input und forward chains"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.8",
+                    title="Ensure nftables default deny firewall policy",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist auf drop/reject gesetzt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.8",
+                title="Ensure nftables default deny firewall policy",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_service_enabled(self):
+        """4.3.9 - Ensure nftables service is enabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'nftables'])
+
+            if stdout.strip() == 'enabled':
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.9",
+                    title="Ensure nftables service is enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="nftables service ist aktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.9",
+                    title="Ensure nftables service is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"nftables service ist nicht aktiviert: {stdout.strip()}",
+                    remediation="systemctl enable nftables"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.9",
+                title="Ensure nftables service is enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_rules_permanent(self):
+        """4.3.10 - Ensure nftables rules are permanent"""
+        try:
+            # Check if nftables config file exists
+            config_file = '/etc/nftables.conf'
+
+            if not self.file_exists(config_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.10",
+                    title="Ensure nftables rules are permanent",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{config_file} nicht gefunden",
+                    remediation=f"Erstellen Sie {config_file} und speichern Sie Ihre Regeln"
+                ))
+                return
+
+            content = self.read_file(config_file)
+
+            if content and len(content.strip()) > 0:
+                # Check if it has actual rules
+                if 'table' in content or 'chain' in content:
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.3.10",
+                        title="Ensure nftables rules are permanent",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="nftables-Regeln sind persistent konfiguriert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.3.10",
+                        title="Ensure nftables rules are permanent",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message=f"{config_file} existiert aber enthält keine Regeln",
+                        remediation="Speichern Sie Ihre nftables-Regeln in der Konfigurationsdatei"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.3.10",
+                    title="Ensure nftables rules are permanent",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{config_file} ist leer",
+                    remediation="Speichern Sie Ihre nftables-Regeln: nft list ruleset > /etc/nftables.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.3.10",
+                title="Ensure nftables rules are permanent",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    # iptables Checks (4.4.x) - Simplified versions
+    def check_iptables_installed(self):
+        """4.4.1 - Ensure iptables packages are installed"""
+        try:
+            packages = ['iptables', 'iptables-persistent']
+            missing = []
+
+            for package in packages:
+                returncode, stdout, _ = self.run_command(['dpkg', '-s', package])
+                if returncode != 0 or 'Status: install ok installed' not in stdout:
+                    missing.append(package)
+
+            if missing:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.1",
+                    title="Ensure iptables packages are installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"Fehlende Pakete: {', '.join(missing)}",
+                    remediation=f"apt install {' '.join(missing)}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.1",
+                    title="Ensure iptables packages are installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="iptables-Pakete sind installiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.4.1",
+                title="Ensure iptables packages are installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_nftables_uninstalled_with_iptables(self):
+        """4.4.2 - Ensure nftables is not installed with iptables"""
+        try:
+            # Check if iptables is being used
+            returncode_ipt, _, _ = self.run_command(['dpkg', '-s', 'iptables'])
+
+            if returncode_ipt != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.2",
+                    title="Ensure nftables is not installed with iptables",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="iptables ist nicht installiert, Check nicht relevant"
+                ))
+                return
+
+            # Check if nftables is installed
+            returncode_nft, stdout_nft, _ = self.run_command(['dpkg', '-s', 'nftables'])
+
+            if returncode_nft == 0 and 'Status: install ok installed' in stdout_nft:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.2",
+                    title="Ensure nftables is not installed with iptables",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="nftables ist installiert (Konflikt mit iptables)",
+                    remediation="apt purge nftables"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.2",
+                    title="Ensure nftables is not installed with iptables",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="nftables ist nicht installiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.4.2",
+                title="Ensure nftables is not installed with iptables",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ufw_uninstalled_with_iptables(self):
+        """4.4.3 - Ensure ufw is uninstalled or disabled with iptables"""
+        try:
+            # Check if iptables is being used
+            returncode_ipt, _, _ = self.run_command(['dpkg', '-s', 'iptables'])
+
+            if returncode_ipt != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.3",
+                    title="Ensure ufw is uninstalled or disabled with iptables",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="iptables ist nicht installiert, Check nicht relevant"
+                ))
+                return
+
+            # Check if ufw is installed and active
+            returncode_ufw, stdout_ufw, _ = self.run_command(['dpkg', '-s', 'ufw'])
+
+            if returncode_ufw == 0 and 'Status: install ok installed' in stdout_ufw:
+                returncode_status, stdout_status, _ = self.run_command(['ufw', 'status'])
+                if 'inactive' not in stdout_status.lower():
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.4.3",
+                        title="Ensure ufw is uninstalled or disabled with iptables",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message="ufw ist installiert und aktiv (Konflikt mit iptables)",
+                        remediation="ufw disable oder apt purge ufw"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="4.4.3",
+                        title="Ensure ufw is uninstalled or disabled with iptables",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="ufw ist deaktiviert"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.3",
+                    title="Ensure ufw is uninstalled or disabled with iptables",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="ufw ist nicht installiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.4.3",
+                title="Ensure ufw is uninstalled or disabled with iptables",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_iptables_default_deny(self):
+        """4.4.4 - Ensure iptables default deny firewall policy"""
+        try:
+            # Check IPv4
+            returncode_v4, stdout_v4, _ = self.run_command(['iptables', '-L'])
+            # Check IPv6
+            returncode_v6, stdout_v6, _ = self.run_command(['ip6tables', '-L'])
+
+            if returncode_v4 != 0 and returncode_v6 != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.4",
+                    title="Ensure iptables default deny firewall policy",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="iptables-Befehle fehlgeschlagen"
+                ))
+                return
+
+            issues = []
+
+            # Check IPv4 policies
+            if returncode_v4 == 0:
+                if 'Chain INPUT (policy ACCEPT)' in stdout_v4:
+                    issues.append("IPv4 INPUT policy ist ACCEPT (sollte DROP sein)")
+                if 'Chain FORWARD (policy ACCEPT)' in stdout_v4:
+                    issues.append("IPv4 FORWARD policy ist ACCEPT (sollte DROP sein)")
+
+            # Check IPv6 policies
+            if returncode_v6 == 0:
+                if 'Chain INPUT (policy ACCEPT)' in stdout_v6:
+                    issues.append("IPv6 INPUT policy ist ACCEPT (sollte DROP sein)")
+                if 'Chain FORWARD (policy ACCEPT)' in stdout_v6:
+                    issues.append("IPv6 FORWARD policy ist ACCEPT (sollte DROP sein)")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.4",
+                    title="Ensure iptables default deny firewall policy",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist nicht auf DROP gesetzt",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="iptables -P INPUT DROP && iptables -P FORWARD DROP && ip6tables -P INPUT DROP && ip6tables -P FORWARD DROP"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.4",
+                    title="Ensure iptables default deny firewall policy",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="Default-Policy ist korrekt auf DROP gesetzt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.4.4",
+                title="Ensure iptables default deny firewall policy",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_iptables_loopback_configured(self):
+        """4.4.5 - Ensure iptables loopback traffic is configured"""
+        try:
+            returncode_v4, stdout_v4, _ = self.run_command(['iptables', '-L', 'INPUT', '-v', '-n'])
+            returncode_v6, stdout_v6, _ = self.run_command(['ip6tables', '-L', 'INPUT', '-v', '-n'])
+
+            if returncode_v4 != 0 and returncode_v6 != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.5",
+                    title="Ensure iptables loopback traffic is configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="iptables-Befehle fehlgeschlagen"
+                ))
+                return
+
+            issues = []
+
+            # Check for loopback rules in IPv4
+            if returncode_v4 == 0:
+                if 'lo' not in stdout_v4 or 'ACCEPT' not in stdout_v4:
+                    issues.append("IPv4 Loopback-Regeln möglicherweise unvollständig")
+
+            # Check for loopback rules in IPv6
+            if returncode_v6 == 0:
+                if 'lo' not in stdout_v6 or 'ACCEPT' not in stdout_v6:
+                    issues.append("IPv6 Loopback-Regeln möglicherweise unvollständig")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.5",
+                    title="Ensure iptables loopback traffic is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Konfiguration möglicherweise unvollständig",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Konfigurieren Sie Loopback-Regeln für iptables"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="4.4.5",
+                    title="Ensure iptables loopback traffic is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Loopback-Traffic ist konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="4.4.5",
+                title="Ensure iptables loopback traffic is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all firewall checks"""
+        # UFW Checks (4.2.x)
+        self.check_ufw_installed()
+        self.check_iptables_persistent_not_installed()
+        self.check_ufw_service_enabled()
+        self.check_ufw_loopback_configured()
+        self.check_ufw_outbound_connections()
+        self.check_ufw_firewall_rules()
+        self.check_ufw_default_deny()
+
+        # nftables Checks (4.3.x)
+        self.check_nftables_installed()
+        self.check_ufw_uninstalled_with_nftables()
+        self.check_iptables_flushed_with_nftables()
+        self.check_nftables_table_exists()
+        self.check_nftables_base_chains()
+        self.check_nftables_loopback_configured()
+        self.check_nftables_outbound_established()
+        self.check_nftables_default_deny()
+        self.check_nftables_service_enabled()
+        self.check_nftables_rules_permanent()
+
+        # iptables Checks (4.4.x)
+        self.check_iptables_installed()
+        self.check_nftables_uninstalled_with_iptables()
+        self.check_ufw_uninstalled_with_iptables()
+        self.check_iptables_default_deny()
+        self.check_iptables_loopback_configured()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -5197,6 +6720,14 @@ class DebianCISAudit:
         partition_auditor = FilesystemPartitionAuditor(self.reporter)
         partition_auditor.run_all_checks()
 
+        print("[*] Running AppArmor Configuration Checks...")
+        apparmor_auditor = AppArmorAuditor(self.reporter)
+        apparmor_auditor.run_all_checks()
+
+        print("[*] Running Bootloader Security Checks...")
+        bootloader_auditor = BootloaderAuditor(self.reporter)
+        bootloader_auditor.run_all_checks()
+
         print("[*] Running Service Checks...")
         service_auditor = ServiceAuditor(self.reporter)
         service_auditor.run_all_checks()
@@ -5216,6 +6747,10 @@ class DebianCISAudit:
         print("[*] Running PAM and Password Policy Checks...")
         pam_auditor = PAMAuditor(self.reporter)
         pam_auditor.run_all_checks()
+
+        print("[*] Running Firewall Configuration Checks...")
+        firewall_auditor = FirewallAuditor(self.reporter)
+        firewall_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)

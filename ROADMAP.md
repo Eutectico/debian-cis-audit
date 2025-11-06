@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 180 (~45%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 208 (~52%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 Firewall ABGESCHLOSSEN! ✅ | Phase 4 AppArmor & Bootloader ABGESCHLOSSEN! ✅
 
 ---
 
@@ -308,16 +308,69 @@
 
 ---
 
-## 🚀 Phase 4: Advanced Features (Zukunft)
+## 🚀 Phase 4: Advanced Features ✅ TEILWEISE ABGESCHLOSSEN
 
-### Firewall Configuration (4.x)
-- [ ] 4.2.x - UncomplicatedFirewall (7 Checks)
-- [ ] 4.3.x - nftables (10 Checks)
-- [ ] 4.4.x - iptables (15 Checks)
+### Firewall Configuration (4.x) ✅ ABGESCHLOSSEN - 22 Checks
 
-### AppArmor & Bootloader (1.3.x & 1.4.x)
-- [ ] 1.3.1.x - AppArmor (4 Checks)
-- [ ] 1.4.x - Bootloader (2 Checks)
+<details>
+<summary>UncomplicatedFirewall (4.2.x) - 7 Checks ✅</summary>
+
+- [x] 4.2.1 - Ensure ufw is installed
+- [x] 4.2.2 - Ensure iptables-persistent is not installed with ufw
+- [x] 4.2.3 - Ensure ufw service is enabled
+- [x] 4.2.4 - Ensure ufw loopback traffic is configured
+- [x] 4.2.5 - Ensure ufw outbound connections are configured
+- [x] 4.2.6 - Ensure ufw firewall rules exist for all open ports
+- [x] 4.2.7 - Ensure ufw default deny firewall policy
+
+</details>
+
+<details>
+<summary>nftables (4.3.x) - 10 Checks ✅</summary>
+
+- [x] 4.3.1 - Ensure nftables is installed
+- [x] 4.3.2 - Ensure ufw is uninstalled or disabled with nftables
+- [x] 4.3.3 - Ensure iptables are flushed with nftables
+- [x] 4.3.4 - Ensure a nftables table exists
+- [x] 4.3.5 - Ensure nftables base chains exist
+- [x] 4.3.6 - Ensure nftables loopback traffic is configured
+- [x] 4.3.7 - Ensure nftables outbound and established connections are configured
+- [x] 4.3.8 - Ensure nftables default deny firewall policy
+- [x] 4.3.9 - Ensure nftables service is enabled
+- [x] 4.3.10 - Ensure nftables rules are permanent
+
+</details>
+
+<details>
+<summary>iptables (4.4.x) - 5 Checks ✅</summary>
+
+- [x] 4.4.1 - Ensure iptables packages are installed
+- [x] 4.4.2 - Ensure nftables is not installed with iptables
+- [x] 4.4.3 - Ensure ufw is uninstalled or disabled with iptables
+- [x] 4.4.4 - Ensure iptables default deny firewall policy
+- [x] 4.4.5 - Ensure iptables loopback traffic is configured
+
+</details>
+
+### AppArmor & Bootloader (1.3.x & 1.4.x) ✅ ABGESCHLOSSEN - 6 Checks
+
+<details>
+<summary>AppArmor (1.3.1.x) - 4 Checks ✅</summary>
+
+- [x] 1.3.1.1 - Ensure AppArmor is installed
+- [x] 1.3.1.2 - Ensure AppArmor is enabled in the bootloader configuration
+- [x] 1.3.1.3 - Ensure all AppArmor Profiles are in enforce or complain mode
+- [x] 1.3.1.4 - Ensure all AppArmor Profiles are enforcing
+
+</details>
+
+<details>
+<summary>Bootloader (1.4.x) - 2 Checks ✅</summary>
+
+- [x] 1.4.1 - Ensure bootloader password is set
+- [x] 1.4.2 - Ensure access to bootloader config is configured
+
+</details>
 
 ### GNOME Display Manager (1.7.x)
 - [ ] 1.7.x - GDM Configuration (10 Checks)
@@ -354,15 +407,18 @@
 
 **Checks nach Phase 3:** 180 Checks (~45%) ✅
 
-### 🎯 Phase 4: Advanced Features (v2.1.0+) - GEPLANT
+### 🎯 Phase 4: Advanced Features (v2.1.0+) - TEILWEISE ABGESCHLOSSEN
+**28 Checks implementiert:**
+1. **Firewall Configuration (4.x)** (22 Checks) - UFW, nftables, iptables ✅
+2. **AppArmor & Bootloader (1.3.x, 1.4.x)** (6 Checks) - MAC & Bootloader Security ✅
+
 **Nächste Priorität:**
-1. **Firewall Configuration (4.x)** (32+ Checks) - UncomplicatedFirewall, nftables, iptables
-2. **AppArmor & Bootloader (1.3.x, 1.4.x)** (6 Checks)
 3. **Time Synchronization (2.3.x)** (7 Checks)
 4. **Job Schedulers (2.4.x)** (9 Checks)
 5. **GNOME Display Manager (1.7.x)** (10 Checks)
 6. **Alle verbleibenden Checks**
 
+**Checks nach Phase 4 (AppArmor & Bootloader):** 208 Checks (~52%)
 **Ziel:** 400+ Checks (~100%)
 
 ---
@@ -384,14 +440,14 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
-| 1. Initial Setup (Filesystems) | 35 | 100+ | 35% |
+| 1. Initial Setup (Filesystems, AppArmor, Bootloader) | 41 | 100+ | 41% |
 | 2. Services | 25 | 40+ | 62% |
 | 3. Network | 11 | 20+ | 55% |
-| 4. Firewall | 0 | 40+ | 0% |
+| 4. Firewall | 22 | 40+ | 55% |
 | 5. Access Control (SSH & PAM) | 36 | 100+ | 36% |
 | 6. Logging/Auditing | 51 | 80+ | 64% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **180** | **400+** | **~45%** |
+| **TOTAL** | **208** | **400+** | **~52%** |
 
 ---
 
@@ -441,9 +497,22 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - PAM & Password Policy (5.3.x & 5.4.x - 14 Checks)
 - **Gesamt:** 180 Checks (~45% Coverage)
 
-### v2.1.0 (Geplant)
-- Firewall Configuration (4.x - 32+ Checks)
-- **Geplant gesamt:** 210+ Checks
+### v2.1.0 ✅ ABGESCHLOSSEN (2025-11-06)
+- Firewall Configuration (4.x - 22 Checks)
+  - UFW (4.2.x - 7 Checks)
+  - nftables (4.3.x - 10 Checks)
+  - iptables (4.4.x - 5 Checks)
+- **Gesamt:** 202 Checks (~50% Coverage)
+
+### v2.2.0 ✅ ABGESCHLOSSEN (2025-11-06)
+- AppArmor Configuration (1.3.1.x - 4 Checks)
+- Bootloader Security (1.4.x - 2 Checks)
+- **Gesamt:** 208 Checks (~52% Coverage)
+
+### v2.3.0 (Geplant)
+- Time Synchronization (2.3.x - 7 Checks)
+- Job Schedulers (2.4.x - 9 Checks)
+- **Geplant gesamt:** 224+ Checks
 
 ---
 
