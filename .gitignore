@@ -139,6 +139,7 @@ report.json
 report.txt
 *.report
 audit_results/
+audit_rsu-sp-ki01/
 
 # CIS Benchmark PDFs (copyrighted material)
 Debian_CIS/*.pdf

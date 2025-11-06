@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 234 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~58% Coverage)
+**Aktueller Status:** 253 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~63% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,21 +277,26 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 234 von 400+ Checks implementiert (~58%)
+**Status:** 253 von 400+ Checks implementiert (~63%)
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (234) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (253) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
+- **1.1.3.x** - Filesystem Configuration (3 Checks) ✨ NEU
+- **1.2.x** - Software Updates (2 Checks) ✨ NEU
 - **1.3.1.x** - AppArmor Configuration (4 Checks)
 - **1.4.x** - Bootloader Security (2 Checks)
-- **1.7.x** - GNOME Display Manager (10 Checks) ✨ NEU
+- **1.7.x** - GNOME Display Manager (10 Checks)
+- **1.8.x** - Warning Banners (6 Checks) ✨ NEU
 - **2.1.x** - Server Services (22 Checks)
-- **2.3.x** - Time Synchronization (7 Checks) ✨ NEU
-- **2.4.x** - Job Schedulers (9 Checks) ✨ NEU
+- **2.3.x** - Time Synchronization (7 Checks)
+- **2.4.x** - Job Schedulers (9 Checks)
+- **3.1.x** - Network Devices (3 Checks) ✨ NEU
+- **3.2.x** - Network Protocols (5 Checks) ✨ NEU
 - **3.3.x** - Network Kernel Parameters (11 Checks)
 - **4.2.x** - UncomplicatedFirewall (7 Checks)
 - **4.3.x** - nftables (10 Checks)
@@ -313,6 +318,8 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 </details>
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
+>
+> 🚀 **Neu in v2.5.0:** 19 neue Checks für Warning Banners, Software Updates, Network-Sicherheit und Filesystem-Konfiguration!
 
 ## 📊 Severity Levels
 

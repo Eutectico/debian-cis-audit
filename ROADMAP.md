@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 234 (~58%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 253 (~63%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅ | Phase 5 GESTARTET! 🚀
 
 ---
 
@@ -458,27 +458,29 @@
 
 **Checks nach Phase 4:** 234 Checks (~58%)
 
-### 🚀 Phase 5: High Coverage Goal (v3.0.0+) - GEPLANT
+### 🚀 Phase 5: High Coverage Goal (v3.0.0+) - 🔄 TEILWEISE ABGESCHLOSSEN
 **Ziel:** 300+ Checks (~75% Coverage)
 
 Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+ Coverage zu erreichen.
 
-#### Priorität 1: Remaining Initial Setup (1.x) - ~20 Checks
+**Status:** 19 Checks implementiert (253 gesamt / ~63% Coverage)
+
+#### Priorität 1: Remaining Initial Setup (1.x) - ✅ TEILWEISE ABGESCHLOSSEN (5/20 Checks)
 
 <details>
-<summary>Filesystem Configuration (1.1.3.x) - 3 Checks</summary>
+<summary>Filesystem Configuration (1.1.3.x) - 3 Checks ✅</summary>
 
-- [ ] 1.1.3.1 - Ensure nodev option set on /var partition
-- [ ] 1.1.3.2 - Ensure nosuid option set on /var partition
-- [ ] 1.1.3.3 - Ensure noexec option set on /var partition
+- [x] 1.1.3.1 - Ensure nodev option set on /var partition
+- [x] 1.1.3.2 - Ensure nosuid option set on /var partition
+- [x] 1.1.3.3 - Ensure noexec option set on /var partition
 
 </details>
 
 <details>
-<summary>Configure Software Updates (1.2.x) - 2 Checks</summary>
+<summary>Configure Software Updates (1.2.x) - 2 Checks ✅</summary>
 
-- [ ] 1.2.1 - Ensure package manager repositories are configured
-- [ ] 1.2.2 - Ensure GPG keys are configured
+- [x] 1.2.1 - Ensure package manager repositories are configured
+- [x] 1.2.2 - Ensure GPG keys are configured
 
 </details>
 
@@ -558,25 +560,25 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 
 </details>
 
-#### Priorität 3: Network Configuration (3.x) - ~15 Checks
+#### Priorität 3: Network Configuration (3.x) - ✅ TEILWEISE ABGESCHLOSSEN (8/15 Checks)
 
 <details>
-<summary>Network Devices (3.1.x) - 3 Checks</summary>
+<summary>Network Devices (3.1.x) - 3 Checks ✅</summary>
 
-- [ ] 3.1.1 - Ensure wireless interfaces are disabled
-- [ ] 3.1.2 - Ensure Bluetooth is disabled
-- [ ] 3.1.3 - Ensure packet redirect sending is disabled
+- [x] 3.1.1 - Ensure wireless interfaces are disabled
+- [x] 3.1.2 - Ensure Bluetooth is disabled
+- [x] 3.1.3 - Ensure packet redirect sending is disabled
 
 </details>
 
 <details>
-<summary>Network Protocols (3.2.x) - 5 Checks</summary>
+<summary>Network Protocols (3.2.x) - 5 Checks ✅</summary>
 
-- [ ] 3.2.1 - Ensure DCCP is disabled
-- [ ] 3.2.2 - Ensure SCTP is disabled
-- [ ] 3.2.3 - Ensure RDS is disabled
-- [ ] 3.2.4 - Ensure TIPC is disabled
-- [ ] 3.2.5 - Ensure IPv6 is disabled
+- [x] 3.2.1 - Ensure DCCP is disabled
+- [x] 3.2.2 - Ensure SCTP is disabled
+- [x] 3.2.3 - Ensure RDS is disabled
+- [x] 3.2.4 - Ensure TIPC is disabled
+- [x] 3.2.5 - Ensure IPv6 is disabled
 
 </details>
 
@@ -593,17 +595,17 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 
 </details>
 
-#### Priorität 4: Warning Banners (1.8.x) - 6 Checks
+#### Priorität 4: Warning Banners (1.8.x) - 6 Checks ✅ ABGESCHLOSSEN
 
 <details>
-<summary>Command Line Warning Banners - 6 Checks</summary>
+<summary>Command Line Warning Banners - 6 Checks ✅</summary>
 
-- [ ] 1.8.1 - Ensure message of the day is configured properly
-- [ ] 1.8.2 - Ensure local login warning banner is configured properly
-- [ ] 1.8.3 - Ensure remote login warning banner is configured properly
-- [ ] 1.8.4 - Ensure permissions on /etc/motd are configured
-- [ ] 1.8.5 - Ensure permissions on /etc/issue are configured
-- [ ] 1.8.6 - Ensure permissions on /etc/issue.net are configured
+- [x] 1.8.1 - Ensure message of the day is configured properly
+- [x] 1.8.2 - Ensure local login warning banner is configured properly
+- [x] 1.8.3 - Ensure remote login warning banner is configured properly
+- [x] 1.8.4 - Ensure permissions on /etc/motd are configured
+- [x] 1.8.5 - Ensure permissions on /etc/issue are configured
+- [x] 1.8.6 - Ensure permissions on /etc/issue.net are configured
 
 </details>
 
@@ -628,7 +630,14 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 #### Phase 5 Zusammenfassung:
-- **Geschätzte neue Checks:** 66-76 Checks
+- **Neue Checks implementiert:** 19 Checks ✅
+  - Warning Banners (1.8.x): 6 Checks ✅
+  - Software Updates (1.2.x): 2 Checks ✅
+  - Network Devices (3.1.x): 3 Checks ✅
+  - Network Protocols (3.2.x): 5 Checks ✅
+  - Filesystem Configuration (1.1.3.x): 3 Checks ✅
+- **Verbleibende Phase 5 Checks:** 47-57 Checks
+- **Aktueller Stand:** 253 Checks (~63% Coverage)
 - **Ziel nach Phase 5:** 300-310 Checks (~75% Coverage)
 - **Fokus:** Vervollständigung der Initial Setup, sudo/Access Control, Network Hardening
 - **Timeline:** v3.0.0 - v3.5.0
@@ -692,14 +701,14 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 
 | Kategorie | Implementiert | Gesamt | Prozent |
 |-----------|---------------|--------|---------|
-| 1. Initial Setup (Filesystems, AppArmor, Bootloader, GDM) | 51 | 120+ | 42% |
+| 1. Initial Setup (Filesystems, AppArmor, Bootloader, GDM, Banners) | 62 | 120+ | 52% |
 | 2. Services (Services, Time Sync, Job Schedulers) | 41 | 60+ | 68% |
-| 3. Network | 11 | 20+ | 55% |
+| 3. Network | 19 | 20+ | 95% |
 | 4. Firewall | 22 | 40+ | 55% |
 | 5. Access Control (SSH & PAM) | 36 | 100+ | 36% |
 | 6. Logging/Auditing | 51 | 80+ | 64% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **234** | **400+** | **~58%** |
+| **TOTAL** | **253** | **400+** | **~63%** |
 
 ---
 
@@ -770,8 +779,16 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Job Schedulers (2.4.x - 9 Checks)
 - **Gesamt:** 234 Checks (~58% Coverage)
 
-### v3.0.0 (Geplant)
-- Weitere CIS Checks
+### v2.5.0 ✅ ABGESCHLOSSEN (2025-11-06)
+- Warning Banners (1.8.x - 6 Checks)
+- Software Updates (1.2.x - 2 Checks)
+- Network Devices (3.1.x - 3 Checks)
+- Network Protocols (3.2.x - 5 Checks)
+- Filesystem Configuration (1.1.3.x - 3 Checks)
+- **Gesamt:** 253 Checks (~63% Coverage)
+
+### v3.0.0 (In Arbeit)
+- Weitere CIS Checks (Phase 5 Fortsetzung)
 - **Geplant gesamt:** 300+ Checks (~75% Coverage)
 
 ---

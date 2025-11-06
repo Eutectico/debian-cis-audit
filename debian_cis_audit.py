@@ -3090,11 +3090,294 @@ class NetworkAuditor(BaseAuditor):
                 remediation=f"Set {param_name}={expected_value} in /etc/sysctl.conf and run sysctl -w {param_name}={expected_value}"
             ))
 
+    def check_wireless_interfaces_disabled(self):
+        """3.1.1 - Ensure wireless interfaces are disabled"""
+        try:
+            # Check for wireless interfaces
+            returncode, stdout, _ = self.run_command(['find', '/sys/class/net', '-type', 'l', '-name', 'wlan*'])
+
+            wireless_found = False
+            if returncode == 0 and stdout.strip():
+                wireless_found = True
+
+            # Also check with iwconfig if available
+            returncode2, stdout2, _ = self.run_command(['which', 'iwconfig'])
+            if returncode2 == 0:
+                returncode3, stdout3, _ = self.run_command(['iwconfig'])
+                if returncode3 == 0 and stdout3.strip() and 'no wireless extensions' not in stdout3.lower():
+                    wireless_found = True
+
+            if wireless_found:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.1",
+                    title="Ensure wireless interfaces are disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="WLAN-Interfaces gefunden",
+                    remediation="Deaktivieren Sie WLAN-Interfaces wenn nicht benötigt"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.1",
+                    title="Ensure wireless interfaces are disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Keine WLAN-Interfaces gefunden"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.1.1",
+                title="Ensure wireless interfaces are disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_bluetooth_disabled(self):
+        """3.1.2 - Ensure Bluetooth is disabled"""
+        try:
+            # Check if bluetooth service is running
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'bluetooth.service'])
+
+            if returncode == 0 and stdout.strip() in ['enabled']:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.2",
+                    title="Ensure Bluetooth is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="Bluetooth ist aktiviert",
+                    remediation="Führen Sie aus: systemctl disable bluetooth.service"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.2",
+                    title="Ensure Bluetooth is disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Bluetooth ist deaktiviert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.1.2",
+                title="Ensure Bluetooth is disabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_packet_redirect_sending_disabled(self):
+        """3.1.3 - Ensure packet redirect sending is disabled"""
+        try:
+            all_send_redirects = self.read_file('/proc/sys/net/ipv4/conf/all/send_redirects')
+            default_send_redirects = self.read_file('/proc/sys/net/ipv4/conf/default/send_redirects')
+
+            issues = []
+            if not all_send_redirects or all_send_redirects.strip() != '0':
+                issues.append("net.ipv4.conf.all.send_redirects ist nicht 0")
+            if not default_send_redirects or default_send_redirects.strip() != '0':
+                issues.append("net.ipv4.conf.default.send_redirects ist nicht 0")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.3",
+                    title="Ensure packet redirect sending is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Packet redirect sending ist nicht korrekt konfiguriert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie net.ipv4.conf.all.send_redirects=0 und net.ipv4.conf.default.send_redirects=0 in /etc/sysctl.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.1.3",
+                    title="Ensure packet redirect sending is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Packet redirect sending ist deaktiviert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.1.3",
+                title="Ensure packet redirect sending is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_dccp_disabled(self):
+        """3.2.1 - Ensure DCCP is disabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', 'dccp'])
+
+            if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.1",
+                    title="Ensure DCCP is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="DCCP-Modul ist deaktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.1",
+                    title="Ensure DCCP is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="DCCP-Modul ist nicht deaktiviert",
+                    remediation="Fügen Sie 'install dccp /bin/true' zu /etc/modprobe.d/dccp.conf hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.2.1",
+                title="Ensure DCCP is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sctp_disabled(self):
+        """3.2.2 - Ensure SCTP is disabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', 'sctp'])
+
+            if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.2",
+                    title="Ensure SCTP is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="SCTP-Modul ist deaktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.2",
+                    title="Ensure SCTP is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="SCTP-Modul ist nicht deaktiviert",
+                    remediation="Fügen Sie 'install sctp /bin/true' zu /etc/modprobe.d/sctp.conf hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.2.2",
+                title="Ensure SCTP is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_rds_disabled(self):
+        """3.2.3 - Ensure RDS is disabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', 'rds'])
+
+            if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.3",
+                    title="Ensure RDS is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="RDS-Modul ist deaktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.3",
+                    title="Ensure RDS is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="RDS-Modul ist nicht deaktiviert",
+                    remediation="Fügen Sie 'install rds /bin/true' zu /etc/modprobe.d/rds.conf hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.2.3",
+                title="Ensure RDS is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_tipc_disabled(self):
+        """3.2.4 - Ensure TIPC is disabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', 'tipc'])
+
+            if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.4",
+                    title="Ensure TIPC is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="TIPC-Modul ist deaktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.4",
+                    title="Ensure TIPC is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="TIPC-Modul ist nicht deaktiviert",
+                    remediation="Fügen Sie 'install tipc /bin/true' zu /etc/modprobe.d/tipc.conf hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.2.4",
+                title="Ensure TIPC is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ipv6_disabled(self):
+        """3.2.5 - Ensure IPv6 is disabled (if not needed)"""
+        try:
+            # Check if IPv6 is disabled via sysctl
+            ipv6_disabled = self.read_file('/proc/sys/net/ipv6/conf/all/disable_ipv6')
+
+            if ipv6_disabled and ipv6_disabled.strip() == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.5",
+                    title="Ensure IPv6 is disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="IPv6 ist deaktiviert"
+                ))
+            else:
+                # IPv6 is enabled - this might be intentional
+                self.reporter.add_result(AuditResult(
+                    check_id="3.2.5",
+                    title="Ensure IPv6 is disabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="IPv6 ist aktiviert (deaktivieren Sie es falls nicht benötigt)",
+                    remediation="Setzen Sie net.ipv6.conf.all.disable_ipv6=1 in /etc/sysctl.conf falls IPv6 nicht benötigt wird"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.2.5",
+                title="Ensure IPv6 is disabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
     def run_all_checks(self):
         """Run all network checks"""
         # Legacy checks (3.1.x and 3.2.x)
         self.check_ip_forwarding()
         self.check_icmp_redirects()
+
+        # Network Devices (3.1.x - 3 checks)
+        self.check_wireless_interfaces_disabled()
+        self.check_bluetooth_disabled()
+        self.check_packet_redirect_sending_disabled()
+
+        # Network Protocols (3.2.x - 5 checks)
+        self.check_dccp_disabled()
+        self.check_sctp_disabled()
+        self.check_rds_disabled()
+        self.check_tipc_disabled()
+        self.check_ipv6_disabled()
 
         # Network Kernel Parameters (3.3.x - 11 checks)
         self._check_sysctl_parameter(
@@ -4186,6 +4469,19 @@ class FilesystemPartitionAuditor(BaseAuditor):
         """Check if nosuid option is set on /var"""
         self._check_mount_option('/var', 'nosuid', '1.1.2.4.3', 'Ensure nosuid option set on /var partition')
 
+    # Additional /var configuration checks (1.1.3.x)
+    def check_var_nodev_1_1_3_1(self):
+        """1.1.3.1 - Ensure nodev option set on /var partition"""
+        self._check_mount_option('/var', 'nodev', '1.1.3.1', 'Ensure nodev option set on /var partition', Severity.MEDIUM)
+
+    def check_var_nosuid_1_1_3_2(self):
+        """1.1.3.2 - Ensure nosuid option set on /var partition"""
+        self._check_mount_option('/var', 'nosuid', '1.1.3.2', 'Ensure nosuid option set on /var partition', Severity.MEDIUM)
+
+    def check_var_noexec(self):
+        """1.1.3.3 - Ensure noexec option set on /var partition"""
+        self._check_mount_option('/var', 'noexec', '1.1.3.3', 'Ensure noexec option set on /var partition', Severity.MEDIUM)
+
     # /var/tmp partition checks
     def check_vartmp_partition(self):
         """Check if /var/tmp is a separate partition"""
@@ -4256,10 +4552,15 @@ class FilesystemPartitionAuditor(BaseAuditor):
         self.check_home_nodev()
         self.check_home_nosuid()
 
-        # /var checks
+        # /var checks (1.1.2.4.x)
         self.check_var_partition()
         self.check_var_nodev()
         self.check_var_nosuid()
+
+        # Additional /var configuration checks (1.1.3.x)
+        self.check_var_nodev_1_1_3_1()
+        self.check_var_nosuid_1_1_3_2()
+        self.check_var_noexec()
 
         # /var/tmp checks
         self.check_vartmp_partition()
@@ -7708,6 +8009,535 @@ class FirewallAuditor(BaseAuditor):
         self.check_iptables_loopback_configured()
 
 
+class WarningBannerAuditor(BaseAuditor):
+    """Auditor for warning banner configuration (1.8.x)"""
+
+    def check_motd_configured(self):
+        """1.8.1 - Ensure message of the day is configured properly"""
+        try:
+            motd_file = '/etc/motd'
+
+            if not self.file_exists(motd_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.1",
+                    title="Ensure message of the day is configured properly",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="/etc/motd existiert nicht",
+                    remediation="Erstellen Sie /etc/motd mit angemessenem Inhalt"
+                ))
+                return
+
+            content = self.read_file(motd_file)
+            if content:
+                # Check for inappropriate content (OS info, kernel version, etc.)
+                inappropriate_patterns = [r'\\m', r'\\r', r'\\s', r'\\v']
+                issues = []
+
+                for pattern in inappropriate_patterns:
+                    if pattern in content:
+                        issues.append(f"Enthält {pattern} (Systeminformationen)")
+
+                if issues:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.8.1",
+                        title="Ensure message of the day is configured properly",
+                        status=Status.FAIL,
+                        severity=Severity.LOW,
+                        message="/etc/motd enthält unangemessenen Inhalt",
+                        details="\n".join([f"  - {issue}" for issue in issues]),
+                        remediation="Entfernen Sie Systeminformationen aus /etc/motd"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.8.1",
+                        title="Ensure message of the day is configured properly",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message="/etc/motd ist angemessen konfiguriert"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.1",
+                    title="Ensure message of the day is configured properly",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="/etc/motd ist leer (akzeptabel)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.1",
+                title="Ensure message of the day is configured properly",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_issue_configured(self):
+        """1.8.2 - Ensure local login warning banner is configured properly"""
+        try:
+            issue_file = '/etc/issue'
+
+            if not self.file_exists(issue_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.2",
+                    title="Ensure local login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue existiert nicht",
+                    remediation="Erstellen Sie /etc/issue mit einem Warnhinweis"
+                ))
+                return
+
+            content = self.read_file(issue_file)
+            if not content or len(content.strip()) == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.2",
+                    title="Ensure local login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue ist leer",
+                    remediation="Fügen Sie einen Warnhinweis zu /etc/issue hinzu"
+                ))
+                return
+
+            # Check for inappropriate content
+            inappropriate_patterns = [r'\\m', r'\\r', r'\\s', r'\\v']
+            issues = []
+
+            for pattern in inappropriate_patterns:
+                if pattern in content:
+                    issues.append(f"Enthält {pattern} (Systeminformationen)")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.2",
+                    title="Ensure local login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue enthält unangemessenen Inhalt",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Entfernen Sie Systeminformationen aus /etc/issue"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.2",
+                    title="Ensure local login warning banner is configured properly",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="/etc/issue ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.2",
+                title="Ensure local login warning banner is configured properly",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_issue_net_configured(self):
+        """1.8.3 - Ensure remote login warning banner is configured properly"""
+        try:
+            issue_net_file = '/etc/issue.net'
+
+            if not self.file_exists(issue_net_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.3",
+                    title="Ensure remote login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue.net existiert nicht",
+                    remediation="Erstellen Sie /etc/issue.net mit einem Warnhinweis"
+                ))
+                return
+
+            content = self.read_file(issue_net_file)
+            if not content or len(content.strip()) == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.3",
+                    title="Ensure remote login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue.net ist leer",
+                    remediation="Fügen Sie einen Warnhinweis zu /etc/issue.net hinzu"
+                ))
+                return
+
+            # Check for inappropriate content
+            inappropriate_patterns = [r'\\m', r'\\r', r'\\s', r'\\v']
+            issues = []
+
+            for pattern in inappropriate_patterns:
+                if pattern in content:
+                    issues.append(f"Enthält {pattern} (Systeminformationen)")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.3",
+                    title="Ensure remote login warning banner is configured properly",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue.net enthält unangemessenen Inhalt",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Entfernen Sie Systeminformationen aus /etc/issue.net"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.3",
+                    title="Ensure remote login warning banner is configured properly",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="/etc/issue.net ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.3",
+                title="Ensure remote login warning banner is configured properly",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_motd_permissions(self):
+        """1.8.4 - Ensure permissions on /etc/motd are configured"""
+        try:
+            motd_file = '/etc/motd'
+
+            if not self.file_exists(motd_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.4",
+                    title="Ensure permissions on /etc/motd are configured",
+                    status=Status.SKIP,
+                    severity=Severity.LOW,
+                    message="/etc/motd existiert nicht"
+                ))
+                return
+
+            stat_info = self.get_file_stat(motd_file)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.4",
+                    title="Ensure permissions on /etc/motd are configured",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Konnte Dateiinformationen nicht abrufen"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            owner = stat_info.st_uid
+            group = stat_info.st_gid
+
+            issues = []
+
+            # Should be 0644 or more restrictive
+            if mode & 0o022:  # Check if group/other can write
+                issues.append(f"Berechtigungen zu offen: {oct(mode)}")
+
+            if owner != 0:
+                issues.append(f"Owner ist nicht root: UID {owner}")
+
+            if group != 0:
+                issues.append(f"Group ist nicht root: GID {group}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.4",
+                    title="Ensure permissions on /etc/motd are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/motd sind falsch",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Führen Sie aus: chown root:root /etc/motd && chmod 0644 /etc/motd"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.4",
+                    title="Ensure permissions on /etc/motd are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/motd sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.4",
+                title="Ensure permissions on /etc/motd are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_issue_permissions(self):
+        """1.8.5 - Ensure permissions on /etc/issue are configured"""
+        try:
+            issue_file = '/etc/issue'
+
+            if not self.file_exists(issue_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.5",
+                    title="Ensure permissions on /etc/issue are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue existiert nicht"
+                ))
+                return
+
+            stat_info = self.get_file_stat(issue_file)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.5",
+                    title="Ensure permissions on /etc/issue are configured",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Konnte Dateiinformationen nicht abrufen"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            owner = stat_info.st_uid
+            group = stat_info.st_gid
+
+            issues = []
+
+            # Should be 0644 or more restrictive
+            if mode & 0o022:  # Check if group/other can write
+                issues.append(f"Berechtigungen zu offen: {oct(mode)}")
+
+            if owner != 0:
+                issues.append(f"Owner ist nicht root: UID {owner}")
+
+            if group != 0:
+                issues.append(f"Group ist nicht root: GID {group}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.5",
+                    title="Ensure permissions on /etc/issue are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/issue sind falsch",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Führen Sie aus: chown root:root /etc/issue && chmod 0644 /etc/issue"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.5",
+                    title="Ensure permissions on /etc/issue are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/issue sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.5",
+                title="Ensure permissions on /etc/issue are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_issue_net_permissions(self):
+        """1.8.6 - Ensure permissions on /etc/issue.net are configured"""
+        try:
+            issue_net_file = '/etc/issue.net'
+
+            if not self.file_exists(issue_net_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.6",
+                    title="Ensure permissions on /etc/issue.net are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="/etc/issue.net existiert nicht"
+                ))
+                return
+
+            stat_info = self.get_file_stat(issue_net_file)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.6",
+                    title="Ensure permissions on /etc/issue.net are configured",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Konnte Dateiinformationen nicht abrufen"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            owner = stat_info.st_uid
+            group = stat_info.st_gid
+
+            issues = []
+
+            # Should be 0644 or more restrictive
+            if mode & 0o022:  # Check if group/other can write
+                issues.append(f"Berechtigungen zu offen: {oct(mode)}")
+
+            if owner != 0:
+                issues.append(f"Owner ist nicht root: UID {owner}")
+
+            if group != 0:
+                issues.append(f"Group ist nicht root: GID {group}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.6",
+                    title="Ensure permissions on /etc/issue.net are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/issue.net sind falsch",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Führen Sie aus: chown root:root /etc/issue.net && chmod 0644 /etc/issue.net"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.8.6",
+                    title="Ensure permissions on /etc/issue.net are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Berechtigungen auf /etc/issue.net sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.8.6",
+                title="Ensure permissions on /etc/issue.net are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all warning banner checks"""
+        self.check_motd_configured()
+        self.check_issue_configured()
+        self.check_issue_net_configured()
+        self.check_motd_permissions()
+        self.check_issue_permissions()
+        self.check_issue_net_permissions()
+
+
+class SoftwareUpdatesAuditor(BaseAuditor):
+    """Auditor for software updates configuration (1.2.x)"""
+
+    def check_apt_repositories_configured(self):
+        """1.2.1 - Ensure package manager repositories are configured"""
+        try:
+            sources_file = '/etc/apt/sources.list'
+            sources_d = '/etc/apt/sources.list.d'
+
+            if not self.file_exists(sources_file) and not self.file_exists(sources_d):
+                self.reporter.add_result(AuditResult(
+                    check_id="1.2.1",
+                    title="Ensure package manager repositories are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Keine APT-Repositories konfiguriert",
+                    remediation="Konfigurieren Sie /etc/apt/sources.list"
+                ))
+                return
+
+            # Check if sources.list has content
+            has_repos = False
+
+            if self.file_exists(sources_file):
+                content = self.read_file(sources_file)
+                if content:
+                    # Count non-comment, non-empty lines
+                    repo_lines = [line for line in content.splitlines()
+                                 if line.strip() and not line.strip().startswith('#')]
+                    if repo_lines:
+                        has_repos = True
+
+            # Check sources.list.d directory
+            if self.file_exists(sources_d):
+                returncode, stdout, _ = self.run_command(['find', sources_d, '-name', '*.list', '-type', 'f'])
+                if returncode == 0 and stdout.strip():
+                    has_repos = True
+
+            if not has_repos:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.2.1",
+                    title="Ensure package manager repositories are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Keine aktiven APT-Repositories gefunden",
+                    remediation="Fügen Sie Debian-Repositories zu /etc/apt/sources.list hinzu"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.2.1",
+                    title="Ensure package manager repositories are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="APT-Repositories sind konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.2.1",
+                title="Ensure package manager repositories are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_gpg_keys_configured(self):
+        """1.2.2 - Ensure GPG keys are configured"""
+        try:
+            # Check for GPG keys
+            returncode, stdout, _ = self.run_command(['apt-key', 'list'])
+
+            if returncode != 0:
+                # apt-key might be deprecated, try alternative
+                returncode2, stdout2, _ = self.run_command(['ls', '/etc/apt/trusted.gpg.d/'])
+                if returncode2 == 0 and stdout2.strip():
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.2.2",
+                        title="Ensure GPG keys are configured",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="GPG-Keys sind konfiguriert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.2.2",
+                        title="Ensure GPG keys are configured",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message="Keine GPG-Keys gefunden",
+                        remediation="Installieren Sie GPG-Keys für Ihre Repositories"
+                    ))
+            elif not stdout.strip() or 'pub' not in stdout.lower():
+                self.reporter.add_result(AuditResult(
+                    check_id="1.2.2",
+                    title="Ensure GPG keys are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Keine GPG-Keys gefunden",
+                    remediation="Installieren Sie GPG-Keys für Ihre Repositories"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.2.2",
+                    title="Ensure GPG keys are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="GPG-Keys sind konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.2.2",
+                title="Ensure GPG keys are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all software updates checks"""
+        self.check_apt_repositories_configured()
+        self.check_gpg_keys_configured()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -7748,6 +8578,14 @@ class DebianCISAudit:
         print("[*] Running Filesystem Partition Checks...")
         partition_auditor = FilesystemPartitionAuditor(self.reporter)
         partition_auditor.run_all_checks()
+
+        print("[*] Running Software Updates Checks...")
+        software_updates_auditor = SoftwareUpdatesAuditor(self.reporter)
+        software_updates_auditor.run_all_checks()
+
+        print("[*] Running Warning Banner Checks...")
+        warning_banner_auditor = WarningBannerAuditor(self.reporter)
+        warning_banner_auditor.run_all_checks()
 
         print("[*] Running AppArmor Configuration Checks...")
         apparmor_auditor = AppArmorAuditor(self.reporter)
