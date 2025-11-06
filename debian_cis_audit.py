@@ -4262,6 +4262,900 @@ class UserAuditor(BaseAuditor):
         self.check_user_dot_files()
 
 
+class PAMAuditor(BaseAuditor):
+    """PAM and Password Policy auditor for CIS checks 5.3.x and 5.4.x"""
+
+    def check_pam_pwquality_installed(self):
+        """5.3.1.1 - Ensure password creation requirements are configured (libpam-pwquality)"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'libpam-pwquality'])
+
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.1",
+                    title="Ensure password creation requirements are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="libpam-pwquality ist installiert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.1",
+                    title="Ensure password creation requirements are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="libpam-pwquality ist nicht installiert",
+                    remediation="apt install libpam-pwquality"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.3.1.1",
+                title="Ensure password creation requirements are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_pwquality_config(self):
+        """5.3.1.2 - Ensure password quality requirements are configured"""
+        try:
+            config_file = '/etc/security/pwquality.conf'
+
+            if not self.file_exists(config_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.2",
+                    title="Ensure password quality requirements are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{config_file} nicht gefunden",
+                    remediation="apt install libpam-pwquality"
+                ))
+                return
+
+            config = self.read_file(config_file)
+            if not config:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.2",
+                    title="Ensure password quality requirements are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{config_file} konnte nicht gelesen werden",
+                    remediation="Überprüfen Sie die Dateiberechtigungen"
+                ))
+                return
+
+            # Check for required password quality settings
+            required_settings = {
+                'minlen': 14,
+                'minclass': 4,
+                'dcredit': -1,
+                'ucredit': -1,
+                'lcredit': -1,
+                'ocredit': -1
+            }
+
+            issues = []
+            for setting, min_value in required_settings.items():
+                pattern = rf'^\s*{setting}\s*=\s*(-?\d+)'
+                match = re.search(pattern, config, re.MULTILINE)
+
+                if not match:
+                    issues.append(f"{setting} nicht konfiguriert (empfohlen: {min_value})")
+                else:
+                    value = int(match.group(1))
+                    if setting == 'minlen' and value < min_value:
+                        issues.append(f"{setting}={value} ist zu klein (empfohlen: >= {min_value})")
+                    elif setting != 'minlen' and value > min_value:
+                        issues.append(f"{setting}={value} sollte <= {min_value} sein")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.2",
+                    title="Ensure password quality requirements are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Password-Qualitätsanforderungen nicht ausreichend konfiguriert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation=f"Bearbeiten Sie {config_file} und passen Sie die Einstellungen an"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.1.2",
+                    title="Ensure password quality requirements are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Password-Qualitätsanforderungen sind korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.3.1.2",
+                title="Ensure password quality requirements are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_pam_faillock(self):
+        """5.3.2.1 - Ensure lockout for failed password attempts is configured"""
+        try:
+            pam_files = ['/etc/pam.d/common-auth', '/etc/pam.d/common-account']
+            issues = []
+
+            for pam_file in pam_files:
+                if not self.file_exists(pam_file):
+                    issues.append(f"{pam_file} nicht gefunden")
+                    continue
+
+                content = self.read_file(pam_file)
+                if not content:
+                    issues.append(f"{pam_file} konnte nicht gelesen werden")
+                    continue
+
+                if 'pam_faillock' in pam_file and 'common-auth' in pam_file:
+                    if 'pam_faillock.so' not in content:
+                        issues.append(f"pam_faillock.so nicht in {pam_file} konfiguriert")
+
+                if 'common-account' in pam_file:
+                    if 'pam_faillock.so' not in content:
+                        issues.append(f"pam_faillock.so nicht in {pam_file} konfiguriert")
+
+            # Check faillock.conf
+            faillock_conf = '/etc/security/faillock.conf'
+            if self.file_exists(faillock_conf):
+                config = self.read_file(faillock_conf)
+                if config:
+                    # Check for deny, unlock_time settings
+                    if not re.search(r'^\s*deny\s*=\s*[1-5]\s*$', config, re.MULTILINE):
+                        issues.append("deny-Einstellung nicht korrekt konfiguriert (empfohlen: <= 5)")
+                    if not re.search(r'^\s*unlock_time\s*=\s*9\d{2,}', config, re.MULTILINE):
+                        issues.append("unlock_time nicht korrekt konfiguriert (empfohlen: >= 900)")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.2.1",
+                    title="Ensure lockout for failed password attempts is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Account-Lockout nicht korrekt konfiguriert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Konfigurieren Sie pam_faillock in /etc/pam.d/ und /etc/security/faillock.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.2.1",
+                    title="Ensure lockout for failed password attempts is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Account-Lockout ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.3.2.1",
+                title="Ensure lockout for failed password attempts is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_pam_pwhistory(self):
+        """5.3.3.1 - Ensure password reuse is limited"""
+        try:
+            pam_file = '/etc/pam.d/common-password'
+
+            if not self.file_exists(pam_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.1",
+                    title="Ensure password reuse is limited",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"{pam_file} nicht gefunden",
+                    remediation="Stellen Sie sicher, dass PAM korrekt installiert ist"
+                ))
+                return
+
+            content = self.read_file(pam_file)
+            if not content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.1",
+                    title="Ensure password reuse is limited",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"{pam_file} konnte nicht gelesen werden"
+                ))
+                return
+
+            # Check for pam_pwhistory with remember parameter
+            pwhistory_match = re.search(r'pam_pwhistory\.so.*remember=(\d+)', content)
+
+            if not pwhistory_match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.1",
+                    title="Ensure password reuse is limited",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="pam_pwhistory nicht konfiguriert",
+                    remediation=f"Fügen Sie 'password required pam_pwhistory.so remember=5' zu {pam_file} hinzu"
+                ))
+            else:
+                remember_value = int(pwhistory_match.group(1))
+                if remember_value < 5:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.3.3.1",
+                        title="Ensure password reuse is limited",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message=f"Password-History zu niedrig: remember={remember_value}",
+                        details="Empfohlen: remember >= 5",
+                        remediation=f"Erhöhen Sie den remember-Wert in {pam_file} auf mindestens 5"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.3.3.1",
+                        title="Ensure password reuse is limited",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"Password-History korrekt konfiguriert (remember={remember_value})"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.3.3.1",
+                title="Ensure password reuse is limited",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_pam_unix_sha512(self):
+        """5.3.3.2 - Ensure password hashing algorithm is SHA-512"""
+        try:
+            pam_file = '/etc/pam.d/common-password'
+
+            if not self.file_exists(pam_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.2",
+                    title="Ensure password hashing algorithm is SHA-512",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{pam_file} nicht gefunden"
+                ))
+                return
+
+            content = self.read_file(pam_file)
+            if not content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.2",
+                    title="Ensure password hashing algorithm is SHA-512",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"{pam_file} konnte nicht gelesen werden"
+                ))
+                return
+
+            # Check for pam_unix.so with sha512
+            if re.search(r'pam_unix\.so.*sha512', content):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.2",
+                    title="Ensure password hashing algorithm is SHA-512",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Password-Hashing verwendet SHA-512"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.3.3.2",
+                    title="Ensure password hashing algorithm is SHA-512",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="SHA-512 nicht für Password-Hashing konfiguriert",
+                    remediation=f"Fügen Sie 'sha512' zu pam_unix.so in {pam_file} hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.3.3.2",
+                title="Ensure password hashing algorithm is SHA-512",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_password_max_days(self):
+        """5.4.1.1 - Ensure password expiration is 365 days or less"""
+        try:
+            login_defs = '/etc/login.defs'
+
+            if not self.file_exists(login_defs):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.1",
+                    title="Ensure password expiration is 365 days or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"{login_defs} nicht gefunden"
+                ))
+                return
+
+            content = self.read_file(login_defs)
+            if not content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.1",
+                    title="Ensure password expiration is 365 days or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"{login_defs} konnte nicht gelesen werden"
+                ))
+                return
+
+            match = re.search(r'^\s*PASS_MAX_DAYS\s+(\d+)', content, re.MULTILINE)
+
+            if not match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.1",
+                    title="Ensure password expiration is 365 days or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="PASS_MAX_DAYS nicht konfiguriert",
+                    remediation=f"Setzen Sie PASS_MAX_DAYS auf 365 oder weniger in {login_defs}"
+                ))
+            else:
+                max_days = int(match.group(1))
+                if max_days > 365:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.1",
+                        title="Ensure password expiration is 365 days or less",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message=f"PASS_MAX_DAYS zu hoch: {max_days} Tage",
+                        details="Empfohlen: <= 365 Tage",
+                        remediation=f"Setzen Sie PASS_MAX_DAYS auf 365 oder weniger in {login_defs}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.1",
+                        title="Ensure password expiration is 365 days or less",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"PASS_MAX_DAYS korrekt konfiguriert ({max_days} Tage)"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.1.1",
+                title="Ensure password expiration is 365 days or less",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_password_min_days(self):
+        """5.4.1.2 - Ensure minimum days between password changes is configured"""
+        try:
+            login_defs = '/etc/login.defs'
+
+            if not self.file_exists(login_defs):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.2",
+                    title="Ensure minimum days between password changes is configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"{login_defs} nicht gefunden"
+                ))
+                return
+
+            content = self.read_file(login_defs)
+            if not content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.2",
+                    title="Ensure minimum days between password changes is configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"{login_defs} konnte nicht gelesen werden"
+                ))
+                return
+
+            match = re.search(r'^\s*PASS_MIN_DAYS\s+(\d+)', content, re.MULTILINE)
+
+            if not match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.2",
+                    title="Ensure minimum days between password changes is configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="PASS_MIN_DAYS nicht konfiguriert",
+                    remediation=f"Setzen Sie PASS_MIN_DAYS auf 1 oder mehr in {login_defs}"
+                ))
+            else:
+                min_days = int(match.group(1))
+                if min_days < 1:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.2",
+                        title="Ensure minimum days between password changes is configured",
+                        status=Status.FAIL,
+                        severity=Severity.LOW,
+                        message=f"PASS_MIN_DAYS zu niedrig: {min_days}",
+                        details="Empfohlen: >= 1 Tag",
+                        remediation=f"Setzen Sie PASS_MIN_DAYS auf 1 oder mehr in {login_defs}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.2",
+                        title="Ensure minimum days between password changes is configured",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message=f"PASS_MIN_DAYS korrekt konfiguriert ({min_days} Tag(e))"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.1.2",
+                title="Ensure minimum days between password changes is configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_password_warn_age(self):
+        """5.4.1.3 - Ensure password expiration warning days is 7 or more"""
+        try:
+            login_defs = '/etc/login.defs'
+
+            if not self.file_exists(login_defs):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.3",
+                    title="Ensure password expiration warning days is 7 or more",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"{login_defs} nicht gefunden"
+                ))
+                return
+
+            content = self.read_file(login_defs)
+            if not content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.3",
+                    title="Ensure password expiration warning days is 7 or more",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"{login_defs} konnte nicht gelesen werden"
+                ))
+                return
+
+            match = re.search(r'^\s*PASS_WARN_AGE\s+(\d+)', content, re.MULTILINE)
+
+            if not match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.3",
+                    title="Ensure password expiration warning days is 7 or more",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="PASS_WARN_AGE nicht konfiguriert",
+                    remediation=f"Setzen Sie PASS_WARN_AGE auf 7 oder mehr in {login_defs}"
+                ))
+            else:
+                warn_age = int(match.group(1))
+                if warn_age < 7:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.3",
+                        title="Ensure password expiration warning days is 7 or more",
+                        status=Status.FAIL,
+                        severity=Severity.LOW,
+                        message=f"PASS_WARN_AGE zu niedrig: {warn_age}",
+                        details="Empfohlen: >= 7 Tage",
+                        remediation=f"Setzen Sie PASS_WARN_AGE auf 7 oder mehr in {login_defs}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.3",
+                        title="Ensure password expiration warning days is 7 or more",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message=f"PASS_WARN_AGE korrekt konfiguriert ({warn_age} Tage)"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.1.3",
+                title="Ensure password expiration warning days is 7 or more",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_inactive_password_lock(self):
+        """5.4.1.4 - Ensure inactive password lock is 30 days or less"""
+        try:
+            returncode, stdout, _ = self.run_command(['useradd', '-D'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.4",
+                    title="Ensure inactive password lock is 30 days or less",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="useradd -D Befehl fehlgeschlagen"
+                ))
+                return
+
+            match = re.search(r'INACTIVE=(\d+|-1)', stdout)
+
+            if not match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.4",
+                    title="Ensure inactive password lock is 30 days or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="INACTIVE nicht konfiguriert",
+                    remediation="useradd -D -f 30"
+                ))
+            else:
+                inactive_days = int(match.group(1))
+                if inactive_days == -1 or inactive_days > 30:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.4",
+                        title="Ensure inactive password lock is 30 days or less",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message=f"INACTIVE nicht korrekt: {inactive_days}",
+                        details="Empfohlen: <= 30 Tage",
+                        remediation="useradd -D -f 30"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.4.1.4",
+                        title="Ensure inactive password lock is 30 days or less",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"INACTIVE korrekt konfiguriert ({inactive_days} Tage)"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.1.4",
+                title="Ensure inactive password lock is 30 days or less",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_user_password_expiry(self):
+        """5.4.1.5 - Ensure all users last password change date is in the past"""
+        try:
+            returncode, stdout, _ = self.run_command(['cat', '/etc/shadow'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.5",
+                    title="Ensure all users last password change date is in the past",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="Kann /etc/shadow nicht lesen (Root-Rechte erforderlich)"
+                ))
+                return
+
+            import time
+            current_days = int(time.time() / 86400)
+            issues = []
+
+            for line in stdout.splitlines():
+                if not line or line.startswith('#'):
+                    continue
+
+                fields = line.split(':')
+                if len(fields) < 3:
+                    continue
+
+                username = fields[0]
+                password_change_date = fields[2]
+
+                # Skip system accounts
+                if username in ['root', 'daemon', 'bin', 'sys', 'sync', 'games', 'man',
+                               'lp', 'mail', 'news', 'uucp', 'proxy', 'www-data',
+                               'backup', 'list', 'irc', 'gnats', 'nobody']:
+                    continue
+
+                if password_change_date and password_change_date.isdigit():
+                    change_days = int(password_change_date)
+                    if change_days > current_days:
+                        issues.append(f"Benutzer {username}: Passwort-Änderungsdatum in der Zukunft")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.5",
+                    title="Ensure all users last password change date is in the past",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Benutzer mit zukünftigem Passwort-Änderungsdatum gefunden",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Korrigieren Sie die Passwort-Änderungsdaten mit chage"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.1.5",
+                    title="Ensure all users last password change date is in the past",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Alle Passwort-Änderungsdaten sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.1.5",
+                title="Ensure all users last password change date is in the past",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_system_accounts_nologin(self):
+        """5.4.2 - Ensure system accounts are secured"""
+        try:
+            passwd_content = self.read_file('/etc/passwd')
+            if not passwd_content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.2",
+                    title="Ensure system accounts are secured",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="/etc/passwd konnte nicht gelesen werden"
+                ))
+                return
+
+            issues = []
+
+            for line in passwd_content.splitlines():
+                if not line or line.startswith('#'):
+                    continue
+
+                fields = line.split(':')
+                if len(fields) < 7:
+                    continue
+
+                username = fields[0]
+                uid = int(fields[2])
+                shell = fields[6]
+
+                # System accounts have UID < 1000 (excluding root)
+                if uid < 1000 and username != 'root':
+                    # Check if shell is not nologin or false
+                    if shell not in ['/usr/sbin/nologin', '/sbin/nologin', '/bin/false', '/usr/bin/false']:
+                        issues.append(f"System-Account {username} (UID {uid}) hat Login-Shell: {shell}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.2",
+                    title="Ensure system accounts are secured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="System-Accounts mit Login-Shell gefunden",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie die Shell für System-Accounts auf /usr/sbin/nologin oder /bin/false"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.2",
+                    title="Ensure system accounts are secured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Alle System-Accounts sind gesichert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.2",
+                title="Ensure system accounts are secured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_default_group_root(self):
+        """5.4.3 - Ensure default group for the root account is GID 0"""
+        try:
+            passwd_content = self.read_file('/etc/passwd')
+            if not passwd_content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.3",
+                    title="Ensure default group for the root account is GID 0",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="/etc/passwd konnte nicht gelesen werden"
+                ))
+                return
+
+            for line in passwd_content.splitlines():
+                if line.startswith('root:'):
+                    fields = line.split(':')
+                    if len(fields) >= 4:
+                        gid = fields[3]
+                        if gid == '0':
+                            self.reporter.add_result(AuditResult(
+                                check_id="5.4.3",
+                                title="Ensure default group for the root account is GID 0",
+                                status=Status.PASS,
+                                severity=Severity.HIGH,
+                                message="Root-Account hat GID 0"
+                            ))
+                        else:
+                            self.reporter.add_result(AuditResult(
+                                check_id="5.4.3",
+                                title="Ensure default group for the root account is GID 0",
+                                status=Status.FAIL,
+                                severity=Severity.HIGH,
+                                message=f"Root-Account hat falsche GID: {gid}",
+                                remediation="usermod -g 0 root"
+                            ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.3",
+                title="Ensure default group for the root account is GID 0",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message="Root-Account nicht in /etc/passwd gefunden"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.3",
+                title="Ensure default group for the root account is GID 0",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_default_umask(self):
+        """5.4.4 - Ensure default user umask is 027 or more restrictive"""
+        try:
+            files_to_check = ['/etc/bash.bashrc', '/etc/profile']
+            issues = []
+            found_umask = False
+
+            for file_path in files_to_check:
+                if not self.file_exists(file_path):
+                    continue
+
+                content = self.read_file(file_path)
+                if not content:
+                    continue
+
+                # Look for umask settings
+                umask_matches = re.findall(r'^\s*umask\s+(\d+)', content, re.MULTILINE)
+
+                for umask_value in umask_matches:
+                    found_umask = True
+                    umask_int = int(umask_value, 8)
+                    required_umask = int('027', 8)
+
+                    if umask_int < required_umask:
+                        issues.append(f"{file_path}: umask {umask_value} ist zu permissiv (empfohlen: 027)")
+
+            if not found_umask:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.4",
+                    title="Ensure default user umask is 027 or more restrictive",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Kein umask in den Standard-Konfigurationsdateien gefunden",
+                    remediation="Fügen Sie 'umask 027' zu /etc/bash.bashrc und /etc/profile hinzu"
+                ))
+            elif issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.4",
+                    title="Ensure default user umask is 027 or more restrictive",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="umask nicht ausreichend restriktiv",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie umask auf 027 oder restriktiver"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.4",
+                    title="Ensure default user umask is 027 or more restrictive",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Default umask ist ausreichend restriktiv"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.4",
+                title="Ensure default user umask is 027 or more restrictive",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_root_timeout(self):
+        """5.4.5 - Ensure default user shell timeout is 900 seconds or less"""
+        try:
+            files_to_check = ['/etc/bash.bashrc', '/etc/profile', '/etc/profile.d/*.sh']
+            found_timeout = False
+            issues = []
+
+            # Check main files
+            for file_path in ['/etc/bash.bashrc', '/etc/profile']:
+                if not self.file_exists(file_path):
+                    continue
+
+                content = self.read_file(file_path)
+                if not content:
+                    continue
+
+                # Look for TMOUT settings
+                timeout_match = re.search(r'^\s*(?:readonly\s+)?TMOUT=(\d+)', content, re.MULTILINE)
+
+                if timeout_match:
+                    found_timeout = True
+                    timeout_value = int(timeout_match.group(1))
+
+                    if timeout_value > 900 or timeout_value == 0:
+                        issues.append(f"{file_path}: TMOUT={timeout_value} ist zu hoch (empfohlen: <= 900)")
+
+            # Check profile.d directory
+            profile_d = '/etc/profile.d'
+            if self.file_exists(profile_d):
+                returncode, stdout, _ = self.run_command(['find', profile_d, '-name', '*.sh'])
+                if returncode == 0:
+                    for profile_file in stdout.splitlines():
+                        if not profile_file:
+                            continue
+                        content = self.read_file(profile_file)
+                        if content and 'TMOUT=' in content:
+                            found_timeout = True
+                            timeout_match = re.search(r'^\s*(?:readonly\s+)?TMOUT=(\d+)', content, re.MULTILINE)
+                            if timeout_match:
+                                timeout_value = int(timeout_match.group(1))
+                                if timeout_value > 900 or timeout_value == 0:
+                                    issues.append(f"{profile_file}: TMOUT={timeout_value} ist zu hoch")
+
+            if not found_timeout:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.5",
+                    title="Ensure default user shell timeout is 900 seconds or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="TMOUT nicht konfiguriert",
+                    remediation="Fügen Sie 'TMOUT=900' und 'readonly TMOUT' zu /etc/bash.bashrc oder /etc/profile hinzu"
+                ))
+            elif issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.5",
+                    title="Ensure default user shell timeout is 900 seconds or less",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Shell-Timeout nicht korrekt konfiguriert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie TMOUT auf 900 Sekunden oder weniger"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.4.5",
+                    title="Ensure default user shell timeout is 900 seconds or less",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Shell-Timeout ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.4.5",
+                title="Ensure default user shell timeout is 900 seconds or less",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all PAM and password policy checks"""
+        # 5.3.x - PAM Configuration
+        self.check_pam_pwquality_installed()
+        self.check_pwquality_config()
+        self.check_pam_faillock()
+        self.check_pam_pwhistory()
+        self.check_pam_unix_sha512()
+
+        # 5.4.x - User Accounts and Environment
+        self.check_password_max_days()
+        self.check_password_min_days()
+        self.check_password_warn_age()
+        self.check_inactive_password_lock()
+        self.check_user_password_expiry()
+        self.check_system_accounts_nologin()
+        self.check_default_group_root()
+        self.check_default_umask()
+        self.check_root_timeout()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -4318,6 +5212,10 @@ class DebianCISAudit:
         print("[*] Running User/Group Checks...")
         user_auditor = UserAuditor(self.reporter)
         user_auditor.run_all_checks()
+
+        print("[*] Running PAM and Password Policy Checks...")
+        pam_auditor = PAMAuditor(self.reporter)
+        pam_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)

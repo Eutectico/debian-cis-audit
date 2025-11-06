@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 166 (~41%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅ | Phase 3 Audit File Access ABGESCHLOSSEN! ✅ | Phase 3 Audit Rules ABGESCHLOSSEN! ✅
+- **Aktuell implementiert:** 180 (~45%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 System Maintenance ABGESCHLOSSEN! ✅ | Phase 3 System Logging ABGESCHLOSSEN! ✅ | Phase 3 Audit Data Retention ABGESCHLOSSEN! ✅ | Phase 3 Integrity Checking ABGESCHLOSSEN! ✅ | Phase 3 Audit File Access ABGESCHLOSSEN! ✅ | Phase 3 Audit Rules ABGESCHLOSSEN! ✅ | Phase 3 PAM & Password Policy ABGESCHLOSSEN! ✅
 
 ---
 
@@ -276,9 +276,33 @@
   - [x] 6.3.2 - Ensure filesystem integrity is regularly checked
   - [x] 6.3.3 - Ensure cryptographic mechanisms are used to protect audit tools
 
-### PAM & Password Policy (5.3.x & 5.4.x)
-- [ ] 5.3.x - PAM Configuration (40+ Checks)
-- [ ] 5.4.x - User Accounts (20+ Checks)
+### PAM & Password Policy (5.3.x & 5.4.x) ✅ ABGESCHLOSSEN - 14 Checks
+
+<details>
+<summary>PAM Configuration (5.3.x) - 5 Checks ✅</summary>
+
+- [x] 5.3.1.1 - Ensure password creation requirements are configured (libpam-pwquality)
+- [x] 5.3.1.2 - Ensure password quality requirements are configured
+- [x] 5.3.2.1 - Ensure lockout for failed password attempts is configured
+- [x] 5.3.3.1 - Ensure password reuse is limited
+- [x] 5.3.3.2 - Ensure password hashing algorithm is SHA-512
+
+</details>
+
+<details>
+<summary>User Accounts and Environment (5.4.x) - 9 Checks ✅</summary>
+
+- [x] 5.4.1.1 - Ensure password expiration is 365 days or less
+- [x] 5.4.1.2 - Ensure minimum days between password changes is configured
+- [x] 5.4.1.3 - Ensure password expiration warning days is 7 or more
+- [x] 5.4.1.4 - Ensure inactive password lock is 30 days or less
+- [x] 5.4.1.5 - Ensure all users last password change date is in the past
+- [x] 5.4.2 - Ensure system accounts are secured
+- [x] 5.4.3 - Ensure default group for the root account is GID 0
+- [x] 5.4.4 - Ensure default user umask is 027 or more restrictive
+- [x] 5.4.5 - Ensure default user shell timeout is 900 seconds or less
+
+</details>
 
 ---
 
@@ -315,12 +339,12 @@
 
 **Checks nach Phase 2:** 102 Checks (~25%)
 
-### Mittelfristig (v1.4.0 - v2.0.0)
-1. **System File Permissions** (erweitern auf 13 Checks)
-2. **Logging & Auditing** (erweitern auf 80+ Checks)
-3. **PAM & Password Policy** (60+ Checks)
+### Mittelfristig (v1.4.0 - v2.0.0) ✅ ABGESCHLOSSEN
+1. **System File Permissions** (erweitern auf 13 Checks) ✅
+2. **Logging & Auditing** (erweitern auf 80+ Checks) ✅
+3. **PAM & Password Policy** (14 Checks) ✅
 
-**Geschätzte Checks nach Phase 3:** ~180 Checks (~45%)
+**Checks nach Phase 3:** 180 Checks (~45%) ✅
 
 ### Langfristig (v2.1.0+)
 1. **Firewall Configuration** (32 Checks)
@@ -355,10 +379,10 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 | 2. Services | 25 | 40+ | 62% |
 | 3. Network | 11 | 20+ | 55% |
 | 4. Firewall | 0 | 40+ | 0% |
-| 5. Access Control (SSH) | 22 | 100+ | 22% |
+| 5. Access Control (SSH & PAM) | 36 | 100+ | 36% |
 | 6. Logging/Auditing | 51 | 80+ | 64% |
 | 7. System Maintenance | 22 | 30+ | 73% |
-| **TOTAL** | **166** | **400+** | **~41%** |
+| **TOTAL** | **180** | **400+** | **~45%** |
 
 ---
 
@@ -404,11 +428,15 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Audit Rules (6.2.3.x - 21 Checks)
 - **Gesamt:** 166 Checks (~41% Coverage)
 
-### v2.0.0 (Geplant)
-- PAM & Password Policy (5.3.x & 5.4.x)
-- **Geplant gesamt:** 200+ Checks
+### v2.0.0 ✅ ABGESCHLOSSEN (2025-11-06)
+- PAM & Password Policy (5.3.x & 5.4.x - 14 Checks)
+- **Gesamt:** 180 Checks (~45% Coverage)
+
+### v2.1.0 (Geplant)
+- Firewall Configuration (4.x - 32+ Checks)
+- **Geplant gesamt:** 210+ Checks
 
 ---
 
-**Status aktualisiert:** 2025-11-05
+**Status aktualisiert:** 2025-11-06
 **Nächstes Update:** Bei jedem neuen Release
