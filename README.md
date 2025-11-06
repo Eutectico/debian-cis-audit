@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 253 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~63% Coverage)
+**Aktueller Status:** 270 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~67% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 253 von 400+ Checks implementiert (~63%)
+**Status:** 270 von 400+ Checks implementiert (~67%)
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (253) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (270) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -295,13 +295,15 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **2.1.x** - Server Services (22 Checks)
 - **2.3.x** - Time Synchronization (7 Checks)
 - **2.4.x** - Job Schedulers (9 Checks)
-- **3.1.x** - Network Devices (3 Checks) ✨ NEU
-- **3.2.x** - Network Protocols (5 Checks) ✨ NEU
+- **3.1.x** - Network Devices (3 Checks)
+- **3.2.x** - Network Protocols (5 Checks)
 - **3.3.x** - Network Kernel Parameters (11 Checks)
+- **3.4.x** - IPv6 & TCP Wrappers (7 Checks) ✨ NEU v2.6.0
 - **4.2.x** - UncomplicatedFirewall (7 Checks)
 - **4.3.x** - nftables (10 Checks)
 - **4.4.x** - iptables (5 Checks)
 - **5.1.x** - SSH Server Configuration (22 Checks)
+- **5.2.x** - sudo Configuration (10 Checks) ✨ NEU v2.6.0
 - **5.3.x** - PAM Configuration (5 Checks)
 - **5.4.x** - User Accounts and Environment (9 Checks)
 - **6.1.1.x** - systemd-journald Configuration (5 Checks)
@@ -319,7 +321,9 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Neu in v2.5.0:** 19 neue Checks für Warning Banners, Software Updates, Network-Sicherheit und Filesystem-Konfiguration!
+> 🚀 **Neu in v2.6.0:** 17 neue Checks für sudo Configuration und IPv6/TCP Wrappers Hardening!
+> - sudo Configuration (5.2.x): Privilege Escalation Controls, sudo Logging, NOPASSWD Restrictions
+> - IPv6 & TCP Wrappers (3.4.x): IPv6 Router Advertisements/Redirects, TCP Wrappers, hosts.allow/deny
 
 ## 📊 Severity Levels
 

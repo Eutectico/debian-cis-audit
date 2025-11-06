@@ -3361,6 +3361,355 @@ class NetworkAuditor(BaseAuditor):
                 message=f"Fehler bei der Prüfung: {str(e)}"
             ))
 
+    def check_ipv6_router_advertisements(self):
+        """3.4.1 - Ensure IPv6 router advertisements are not accepted"""
+        try:
+            all_accept_ra = self.read_file('/proc/sys/net/ipv6/conf/all/accept_ra')
+            default_accept_ra = self.read_file('/proc/sys/net/ipv6/conf/default/accept_ra')
+
+            issues = []
+            if not all_accept_ra or all_accept_ra.strip() != '0':
+                issues.append("net.ipv6.conf.all.accept_ra ist nicht 0")
+            if not default_accept_ra or default_accept_ra.strip() != '0':
+                issues.append("net.ipv6.conf.default.accept_ra ist nicht 0")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.1",
+                    title="Ensure IPv6 router advertisements are not accepted",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 Router Advertisements werden akzeptiert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie net.ipv6.conf.all.accept_ra=0 und net.ipv6.conf.default.accept_ra=0 in /etc/sysctl.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.1",
+                    title="Ensure IPv6 router advertisements are not accepted",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 Router Advertisements werden nicht akzeptiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.1",
+                title="Ensure IPv6 router advertisements are not accepted",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ipv6_redirects(self):
+        """3.4.2 - Ensure IPv6 redirects are not accepted"""
+        try:
+            all_accept_redirects = self.read_file('/proc/sys/net/ipv6/conf/all/accept_redirects')
+            default_accept_redirects = self.read_file('/proc/sys/net/ipv6/conf/default/accept_redirects')
+
+            issues = []
+            if not all_accept_redirects or all_accept_redirects.strip() != '0':
+                issues.append("net.ipv6.conf.all.accept_redirects ist nicht 0")
+            if not default_accept_redirects or default_accept_redirects.strip() != '0':
+                issues.append("net.ipv6.conf.default.accept_redirects ist nicht 0")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.2",
+                    title="Ensure IPv6 redirects are not accepted",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 Redirects werden akzeptiert",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Setzen Sie net.ipv6.conf.all.accept_redirects=0 und net.ipv6.conf.default.accept_redirects=0 in /etc/sysctl.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.2",
+                    title="Ensure IPv6 redirects are not accepted",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 Redirects werden nicht akzeptiert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.2",
+                title="Ensure IPv6 redirects are not accepted",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_ipv6_completely_disabled(self):
+        """3.4.3 - Ensure IPv6 is disabled (comprehensive check)"""
+        try:
+            # Check if IPv6 is disabled via grub configuration
+            grub_config = self.read_file('/etc/default/grub')
+            ipv6_disabled_in_grub = False
+
+            if grub_config:
+                for line in grub_config.splitlines():
+                    if 'GRUB_CMDLINE_LINUX' in line and 'ipv6.disable=1' in line:
+                        ipv6_disabled_in_grub = True
+                        break
+
+            # Also check sysctl
+            ipv6_disabled_sysctl = self.read_file('/proc/sys/net/ipv6/conf/all/disable_ipv6')
+            ipv6_disabled_via_sysctl = ipv6_disabled_sysctl and ipv6_disabled_sysctl.strip() == '1'
+
+            if ipv6_disabled_in_grub or ipv6_disabled_via_sysctl:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.3",
+                    title="Ensure IPv6 is disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="IPv6 ist deaktiviert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.3",
+                    title="Ensure IPv6 is disabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="IPv6 ist aktiviert (deaktivieren Sie es falls nicht benötigt)",
+                    remediation="Fügen Sie 'ipv6.disable=1' zu GRUB_CMDLINE_LINUX in /etc/default/grub hinzu und führen Sie 'update-grub' aus, oder setzen Sie net.ipv6.conf.all.disable_ipv6=1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.3",
+                title="Ensure IPv6 is disabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_tcp_wrappers_installed(self):
+        """3.4.4 - Ensure TCP Wrappers is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'tcpd'])
+
+            if returncode == 0 and 'install ok installed' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.4",
+                    title="Ensure TCP Wrappers is installed",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="TCP Wrappers (tcpd) ist installiert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.4",
+                    title="Ensure TCP Wrappers is installed",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="TCP Wrappers (tcpd) ist nicht installiert",
+                    remediation="Führen Sie aus: apt install tcpd"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.4",
+                title="Ensure TCP Wrappers is installed",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_hosts_allow_configured(self):
+        """3.4.5 - Ensure /etc/hosts.allow is configured"""
+        try:
+            hosts_allow_path = '/etc/hosts.allow'
+
+            if not self.file_exists(hosts_allow_path):
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.5",
+                    title="Ensure /etc/hosts.allow is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.allow existiert nicht",
+                    remediation="Erstellen Sie /etc/hosts.allow und konfigurieren Sie erlaubte Hosts"
+                ))
+                return
+
+            content = self.read_file(hosts_allow_path)
+            if not content or content.strip() == '':
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.5",
+                    title="Ensure /etc/hosts.allow is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.allow ist leer",
+                    remediation="Konfigurieren Sie /etc/hosts.allow mit erlaubten Hosts (z.B. 'ALL: 192.168.1.0/24')"
+                ))
+            else:
+                # Check for at least one non-comment line
+                has_config = False
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        has_config = True
+                        break
+
+                if has_config:
+                    self.reporter.add_result(AuditResult(
+                        check_id="3.4.5",
+                        title="Ensure /etc/hosts.allow is configured",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/etc/hosts.allow ist konfiguriert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="3.4.5",
+                        title="Ensure /etc/hosts.allow is configured",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="/etc/hosts.allow enthält keine aktive Konfiguration",
+                        remediation="Fügen Sie erlaubte Hosts zu /etc/hosts.allow hinzu"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.5",
+                title="Ensure /etc/hosts.allow is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_hosts_deny_configured(self):
+        """3.4.6 - Ensure /etc/hosts.deny is configured"""
+        try:
+            hosts_deny_path = '/etc/hosts.deny'
+
+            if not self.file_exists(hosts_deny_path):
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.6",
+                    title="Ensure /etc/hosts.deny is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.deny existiert nicht",
+                    remediation="Erstellen Sie /etc/hosts.deny mit 'ALL: ALL' als Standard-Deny-Regel"
+                ))
+                return
+
+            content = self.read_file(hosts_deny_path)
+            if not content or content.strip() == '':
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.6",
+                    title="Ensure /etc/hosts.deny is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.deny ist leer",
+                    remediation="Fügen Sie 'ALL: ALL' zu /etc/hosts.deny hinzu für Default-Deny"
+                ))
+            else:
+                # Check for deny-all rule
+                has_deny_all = False
+                for line in content.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        if 'ALL' in line and ':' in line:
+                            has_deny_all = True
+                            break
+
+                if has_deny_all:
+                    self.reporter.add_result(AuditResult(
+                        check_id="3.4.6",
+                        title="Ensure /etc/hosts.deny is configured",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/etc/hosts.deny ist konfiguriert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="3.4.6",
+                        title="Ensure /etc/hosts.deny is configured",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="/etc/hosts.deny enthält keine Default-Deny-Regel",
+                        remediation="Fügen Sie 'ALL: ALL' zu /etc/hosts.deny hinzu"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.6",
+                title="Ensure /etc/hosts.deny is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_hosts_allow_permissions(self):
+        """3.4.7 - Ensure permissions on /etc/hosts.allow are configured"""
+        try:
+            hosts_allow_path = '/etc/hosts.allow'
+
+            if not self.file_exists(hosts_allow_path):
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.7",
+                    title="Ensure permissions on /etc/hosts.allow are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.allow existiert nicht"
+                ))
+                return
+
+            stat_info = self.get_file_stat(hosts_allow_path)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.7",
+                    title="Ensure permissions on /etc/hosts.allow are configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message=f"Kann {hosts_allow_path} nicht prüfen"
+                ))
+                return
+
+            issues = []
+            mode = stat.S_IMODE(stat_info.st_mode)
+
+            # Should be 0644 or more restrictive
+            if mode & 0o133:  # Check if others have write/execute or group has write/execute
+                issues.append(f"Zu permissive Rechte: {oct(mode)}, erwartet: 0644 oder restriktiver")
+
+            try:
+                owner = pwd.getpwuid(stat_info.st_uid).pw_name
+                if owner != 'root':
+                    issues.append(f"Falscher Besitzer: {owner}, erwartet: root")
+            except KeyError:
+                issues.append(f"Unbekannte UID: {stat_info.st_uid}")
+
+            try:
+                group = grp.getgrgid(stat_info.st_gid).gr_name
+                if group != 'root':
+                    issues.append(f"Falsche Gruppe: {group}, erwartet: root")
+            except KeyError:
+                issues.append(f"Unbekannte GID: {stat_info.st_gid}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.7",
+                    title="Ensure permissions on /etc/hosts.allow are configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Falsche Berechtigungen auf /etc/hosts.allow",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Führen Sie aus: chown root:root /etc/hosts.allow && chmod 644 /etc/hosts.allow"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.4.7",
+                    title="Ensure permissions on /etc/hosts.allow are configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="/etc/hosts.allow Berechtigungen sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.4.7",
+                title="Ensure permissions on /etc/hosts.allow are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
     def run_all_checks(self):
         """Run all network checks"""
         # Legacy checks (3.1.x and 3.2.x)
@@ -3456,6 +3805,15 @@ class NetworkAuditor(BaseAuditor):
             '3.3.11',
             'Ensure ipv6 router advertisements are not accepted'
         )
+
+        # IPv6 & Network Hardening (3.4.x - 7 checks)
+        self.check_ipv6_router_advertisements()
+        self.check_ipv6_redirects()
+        self.check_ipv6_completely_disabled()
+        self.check_tcp_wrappers_installed()
+        self.check_hosts_allow_configured()
+        self.check_hosts_deny_configured()
+        self.check_hosts_allow_permissions()
 
 
 class SSHAuditor(BaseAuditor):
@@ -8538,6 +8896,542 @@ class SoftwareUpdatesAuditor(BaseAuditor):
         self.check_gpg_keys_configured()
 
 
+class SudoAuditor(BaseAuditor):
+    """Auditor for sudo configuration (5.2.x)"""
+
+    def check_sudo_installed(self):
+        """5.2.1 - Ensure sudo is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'sudo'])
+
+            if returncode == 0 and 'install ok installed' in stdout.lower():
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.1",
+                    title="Ensure sudo is installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="sudo ist installiert"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.1",
+                    title="Ensure sudo is installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="sudo ist nicht installiert",
+                    remediation="Installieren Sie sudo: apt install sudo"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.1",
+                title="Ensure sudo is installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_use_pty(self):
+        """5.2.2 - Ensure sudo commands use pty"""
+        try:
+            # Check for use_pty in sudoers configuration
+            returncode, stdout, _ = self.run_command(['grep', '-r', 'use_pty', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode == 0 and 'use_pty' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.2",
+                    title="Ensure sudo commands use pty",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="sudo ist konfiguriert um pty zu verwenden"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.2",
+                    title="Ensure sudo commands use pty",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="use_pty ist nicht in sudoers konfiguriert",
+                    remediation="Fügen Sie 'Defaults use_pty' zu /etc/sudoers hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.2",
+                title="Ensure sudo commands use pty",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_logfile(self):
+        """5.2.3 - Ensure sudo log file exists"""
+        try:
+            # Check for logfile directive in sudoers
+            returncode, stdout, _ = self.run_command(['grep', '-r', '^Defaults.*logfile', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode == 0 and 'logfile' in stdout:
+                # Extract log file path
+                logfile_match = re.search(r'logfile[=\s]+"?([^"\s]+)', stdout)
+                if logfile_match:
+                    logfile = logfile_match.group(1)
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.3",
+                        title="Ensure sudo log file exists",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"sudo Logfile ist konfiguriert: {logfile}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.3",
+                        title="Ensure sudo log file exists",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="sudo Logfile ist konfiguriert"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.3",
+                    title="Ensure sudo log file exists",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Kein sudo Logfile konfiguriert",
+                    remediation="Fügen Sie 'Defaults logfile=\"/var/log/sudo.log\"' zu /etc/sudoers hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.3",
+                title="Ensure sudo log file exists",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_password_required(self):
+        """5.2.4 - Ensure users must provide password for privilege escalation"""
+        try:
+            # Check for NOPASSWD in sudoers
+            returncode, stdout, _ = self.run_command(['grep', '-r', 'NOPASSWD', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode != 0 or not stdout.strip():
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.4",
+                    title="Ensure users must provide password for privilege escalation",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="Keine NOPASSWD-Einträge gefunden"
+                ))
+            else:
+                # Filter out commented lines
+                nopasswd_lines = [line for line in stdout.splitlines() if line.strip() and not line.strip().startswith('#')]
+                if nopasswd_lines:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.4",
+                        title="Ensure users must provide password for privilege escalation",
+                        status=Status.FAIL,
+                        severity=Severity.CRITICAL,
+                        message="NOPASSWD-Einträge in sudoers gefunden",
+                        details="\n".join([f"  - {line.strip()}" for line in nopasswd_lines[:5]]),
+                        remediation="Entfernen Sie NOPASSWD aus /etc/sudoers und /etc/sudoers.d/"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.4",
+                        title="Ensure users must provide password for privilege escalation",
+                        status=Status.PASS,
+                        severity=Severity.CRITICAL,
+                        message="Keine aktiven NOPASSWD-Einträge gefunden"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.4",
+                title="Ensure users must provide password for privilege escalation",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_reauthentication(self):
+        """5.2.5 - Ensure re-authentication for privilege escalation is not disabled globally"""
+        try:
+            # Check for !authenticate in sudoers
+            returncode, stdout, _ = self.run_command(['grep', '-r', '!authenticate', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode != 0 or not stdout.strip():
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.5",
+                    title="Ensure re-authentication for privilege escalation is not disabled globally",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Re-Authentifizierung ist nicht global deaktiviert"
+                ))
+            else:
+                # Filter out commented lines
+                noauth_lines = [line for line in stdout.splitlines() if line.strip() and not line.strip().startswith('#')]
+                if noauth_lines:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.5",
+                        title="Ensure re-authentication for privilege escalation is not disabled globally",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message="!authenticate gefunden - Re-Authentifizierung ist deaktiviert",
+                        details="\n".join([f"  - {line.strip()}" for line in noauth_lines[:5]]),
+                        remediation="Entfernen Sie !authenticate aus /etc/sudoers"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.5",
+                        title="Ensure re-authentication for privilege escalation is not disabled globally",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="Re-Authentifizierung ist nicht global deaktiviert"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.5",
+                title="Ensure re-authentication for privilege escalation is not disabled globally",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_timeout(self):
+        """5.2.6 - Ensure sudo authentication timeout is configured correctly"""
+        try:
+            # Check for timestamp_timeout in sudoers
+            returncode, stdout, _ = self.run_command(['grep', '-r', 'timestamp_timeout', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode == 0 and stdout.strip():
+                # Extract timeout value
+                timeout_match = re.search(r'timestamp_timeout[=\s]+(\d+)', stdout)
+                if timeout_match:
+                    timeout = int(timeout_match.group(1))
+                    if timeout <= 15:
+                        self.reporter.add_result(AuditResult(
+                            check_id="5.2.6",
+                            title="Ensure sudo authentication timeout is configured correctly",
+                            status=Status.PASS,
+                            severity=Severity.MEDIUM,
+                            message=f"sudo timeout ist korrekt konfiguriert: {timeout} Minuten"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="5.2.6",
+                            title="Ensure sudo authentication timeout is configured correctly",
+                            status=Status.FAIL,
+                            severity=Severity.MEDIUM,
+                            message=f"sudo timeout ist zu hoch: {timeout} Minuten (sollte ≤ 15 sein)",
+                            remediation="Setzen Sie 'Defaults timestamp_timeout=15' in /etc/sudoers"
+                        ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.6",
+                        title="Ensure sudo authentication timeout is configured correctly",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="timestamp_timeout gefunden, aber Wert konnte nicht geparst werden"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.6",
+                    title="Ensure sudo authentication timeout is configured correctly",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="sudo timeout ist nicht explizit konfiguriert (Standard: 15 Minuten)",
+                    remediation="Fügen Sie 'Defaults timestamp_timeout=15' zu /etc/sudoers hinzu"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.6",
+                title="Ensure sudo authentication timeout is configured correctly",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_su_restricted(self):
+        """5.2.7 - Ensure access to the su command is restricted"""
+        try:
+            # Check if pam_wheel.so is configured for su
+            pam_su = self.read_file('/etc/pam.d/su')
+
+            if pam_su:
+                # Look for pam_wheel.so use_uid
+                if 'pam_wheel.so' in pam_su and 'use_uid' in pam_su:
+                    # Check if it's not commented out
+                    active_wheel = [line for line in pam_su.splitlines()
+                                   if 'pam_wheel.so' in line and 'use_uid' in line
+                                   and not line.strip().startswith('#')]
+                    if active_wheel:
+                        self.reporter.add_result(AuditResult(
+                            check_id="5.2.7",
+                            title="Ensure access to the su command is restricted",
+                            status=Status.PASS,
+                            severity=Severity.HIGH,
+                            message="pam_wheel.so ist für su aktiviert"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="5.2.7",
+                            title="Ensure access to the su command is restricted",
+                            status=Status.FAIL,
+                            severity=Severity.HIGH,
+                            message="pam_wheel.so ist nicht aktiv in /etc/pam.d/su",
+                            remediation="Fügen Sie 'auth required pam_wheel.so use_uid' zu /etc/pam.d/su hinzu"
+                        ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.7",
+                        title="Ensure access to the su command is restricted",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message="pam_wheel.so ist nicht in /etc/pam.d/su konfiguriert",
+                        remediation="Fügen Sie 'auth required pam_wheel.so use_uid' zu /etc/pam.d/su hinzu"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.7",
+                    title="Ensure access to the su command is restricted",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="/etc/pam.d/su konnte nicht gelesen werden"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.7",
+                title="Ensure access to the su command is restricted",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_logfile_permissions(self):
+        """5.2.8 - Ensure sudo log file permissions are configured"""
+        try:
+            # First, check if logfile is configured
+            returncode, stdout, _ = self.run_command(['grep', '-r', '^Defaults.*logfile', '/etc/sudoers', '/etc/sudoers.d/'])
+
+            if returncode != 0 or not stdout.strip():
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.SKIP,
+                    severity=Severity.LOW,
+                    message="Kein sudo Logfile konfiguriert - Check übersprungen"
+                ))
+                return
+
+            # Extract logfile path
+            logfile_match = re.search(r'logfile[=\s]+"?([^"\s]+)', stdout)
+            if not logfile_match:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="sudo Logfile konfiguriert, aber Pfad konnte nicht extrahiert werden"
+                ))
+                return
+
+            logfile = logfile_match.group(1)
+
+            # Check if file exists
+            if not self.file_exists(logfile):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message=f"sudo Logfile existiert noch nicht: {logfile}"
+                ))
+                return
+
+            # Check permissions
+            stat_info = self.get_file_stat(logfile)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Konnte Dateiinformationen nicht abrufen"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            owner = stat_info.st_uid
+            group = stat_info.st_gid
+
+            issues = []
+
+            # Should be 0640 or more restrictive
+            if mode & 0o027:  # Check if group/other have excessive permissions
+                issues.append(f"Berechtigungen zu offen: {oct(mode)}")
+
+            if owner != 0:
+                issues.append(f"Owner ist nicht root: UID {owner}")
+
+            if group not in [0, 4]:  # root or adm group
+                issues.append(f"Group ist nicht root/adm: GID {group}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"Berechtigungen auf {logfile} sind falsch",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation=f"Führen Sie aus: chown root:adm {logfile} && chmod 0640 {logfile}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.8",
+                    title="Ensure sudo log file permissions are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"Berechtigungen auf {logfile} sind korrekt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.8",
+                title="Ensure sudo log file permissions are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudoers_file_configured(self):
+        """5.2.9 - Ensure sudoers file is configured"""
+        try:
+            # Check /etc/sudoers permissions
+            sudoers_file = '/etc/sudoers'
+
+            if not self.file_exists(sudoers_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.9",
+                    title="Ensure sudoers file is configured",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message="/etc/sudoers existiert nicht"
+                ))
+                return
+
+            stat_info = self.get_file_stat(sudoers_file)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.9",
+                    title="Ensure sudoers file is configured",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="Konnte Dateiinformationen nicht abrufen"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            owner = stat_info.st_uid
+            group = stat_info.st_gid
+
+            issues = []
+
+            # Should be 0440 or 0400
+            if mode not in [0o440, 0o400]:
+                issues.append(f"Berechtigungen nicht optimal: {oct(mode)} (sollte 0440 oder 0400 sein)")
+
+            if owner != 0:
+                issues.append(f"Owner ist nicht root: UID {owner}")
+
+            if group != 0:
+                issues.append(f"Group ist nicht root: GID {group}")
+
+            # Verify syntax with visudo
+            returncode, stdout, stderr = self.run_command(['visudo', '-c', '-f', sudoers_file])
+            if returncode != 0:
+                issues.append(f"Syntaxfehler in sudoers: {stderr.strip()}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.9",
+                    title="Ensure sudoers file is configured",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message="Probleme mit /etc/sudoers gefunden",
+                    details="\n".join([f"  - {issue}" for issue in issues]),
+                    remediation="Führen Sie aus: chown root:root /etc/sudoers && chmod 0440 /etc/sudoers"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.9",
+                    title="Ensure sudoers file is configured",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="/etc/sudoers ist korrekt konfiguriert"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.9",
+                title="Ensure sudoers file is configured",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def check_sudo_logfile_size(self):
+        """5.2.10 - Ensure sudo log file size is configured"""
+        try:
+            # Check if logrotate is configured for sudo logs
+            logrotate_sudo = '/etc/logrotate.d/sudo'
+
+            if self.file_exists(logrotate_sudo):
+                content = self.read_file(logrotate_sudo)
+                if content and ('rotate' in content or 'size' in content):
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.10",
+                        title="Ensure sudo log file size is configured",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message="logrotate ist für sudo Logs konfiguriert"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="5.2.10",
+                        title="Ensure sudo log file size is configured",
+                        status=Status.FAIL,
+                        severity=Severity.LOW,
+                        message="logrotate-Konfiguration für sudo ist unvollständig",
+                        remediation="Konfigurieren Sie logrotate in /etc/logrotate.d/sudo"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.2.10",
+                    title="Ensure sudo log file size is configured",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="Keine logrotate-Konfiguration für sudo vorhanden",
+                    remediation="Erstellen Sie /etc/logrotate.d/sudo mit sinnvoller Rotation"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.2.10",
+                title="Ensure sudo log file size is configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Fehler bei der Prüfung: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all sudo configuration checks"""
+        self.check_sudo_installed()
+        self.check_sudo_use_pty()
+        self.check_sudo_logfile()
+        self.check_sudo_password_required()
+        self.check_sudo_reauthentication()
+        self.check_sudo_timeout()
+        self.check_su_restricted()
+        self.check_sudo_logfile_permissions()
+        self.check_sudoers_file_configured()
+        self.check_sudo_logfile_size()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -8618,6 +9512,10 @@ class DebianCISAudit:
         print("[*] Running SSH Configuration Checks...")
         ssh_auditor = SSHAuditor(self.reporter)
         ssh_auditor.run_all_checks()
+
+        print("[*] Running sudo Configuration Checks...")
+        sudo_auditor = SudoAuditor(self.reporter)
+        sudo_auditor.run_all_checks()
 
         print("[*] Running User/Group Checks...")
         user_auditor = UserAuditor(self.reporter)

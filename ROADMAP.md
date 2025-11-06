@@ -4,8 +4,8 @@
 
 - **CIS Debian Linux 12 Benchmark:** v1.1.0 (09-26-2024)
 - **Gesamt Checks im Benchmark:** 400+
-- **Aktuell implementiert:** 253 (~63%)
-- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅ | Phase 5 GESTARTET! 🚀
+- **Aktuell implementiert:** 270 (~67%)
+- **Status:** Phase 2 ABGESCHLOSSEN! ✅ | Phase 3 ABGESCHLOSSEN! ✅ | Phase 4 ABGESCHLOSSEN! ✅ | Phase 5 Sprint 1 ABGESCHLOSSEN! ✅
 
 ---
 
@@ -458,12 +458,14 @@
 
 **Checks nach Phase 4:** 234 Checks (~58%)
 
-### 🚀 Phase 5: High Coverage Goal (v3.0.0+) - 🔄 TEILWEISE ABGESCHLOSSEN
+### 🚀 Phase 5: High Coverage Goal (v2.6.0 - v3.x) - 🔄 IN ARBEIT
 **Ziel:** 300+ Checks (~75% Coverage)
 
 Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+ Coverage zu erreichen.
 
-**Status:** 19 Checks implementiert (253 gesamt / ~63% Coverage)
+**Status:** 36 Checks implementiert (270 gesamt / ~67% Coverage)
+- **v2.5.0:** 19 Checks (Warning Banners, Software Updates, Network Devices/Protocols, Filesystem Config)
+- **v2.6.0:** 17 Checks (sudo Configuration, IPv6 & TCP Wrappers) ✅ Sprint 1 ABGESCHLOSSEN
 
 #### Priorität 1: Remaining Initial Setup (1.x) - ✅ TEILWEISE ABGESCHLOSSEN (5/20 Checks)
 
@@ -513,21 +515,21 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 
 </details>
 
-#### Priorität 2: Access Control & Authentication (5.x) - ~25 Checks
+#### Priorität 2: Access Control & Authentication (5.x) - ✅ TEILWEISE ABGESCHLOSSEN (10/25 Checks)
 
 <details>
-<summary>sudo Configuration (5.2.x) - 10 Checks</summary>
+<summary>sudo Configuration (5.2.x) - 10 Checks ✅ ABGESCHLOSSEN (v2.6.0)</summary>
 
-- [ ] 5.2.1 - Ensure sudo is installed
-- [ ] 5.2.2 - Ensure sudo commands use pty
-- [ ] 5.2.3 - Ensure sudo log file exists
-- [ ] 5.2.4 - Ensure users must provide password for privilege escalation
-- [ ] 5.2.5 - Ensure re-authentication for privilege escalation is not disabled globally
-- [ ] 5.2.6 - Ensure sudo authentication timeout is configured correctly
-- [ ] 5.2.7 - Ensure access to the su command is restricted
-- [ ] 5.2.8 - Ensure sudo log file permissions are configured
-- [ ] 5.2.9 - Ensure sudoers file is configured
-- [ ] 5.2.10 - Ensure sudo log file size is configured
+- [x] 5.2.1 - Ensure sudo is installed
+- [x] 5.2.2 - Ensure sudo commands use pty
+- [x] 5.2.3 - Ensure sudo log file exists
+- [x] 5.2.4 - Ensure users must provide password for privilege escalation
+- [x] 5.2.5 - Ensure re-authentication for privilege escalation is not disabled globally
+- [x] 5.2.6 - Ensure sudo authentication timeout is configured correctly
+- [x] 5.2.7 - Ensure access to the su command is restricted
+- [x] 5.2.8 - Ensure sudo log file permissions are configured
+- [x] 5.2.9 - Ensure sudoers file is configured
+- [x] 5.2.10 - Ensure sudo log file size is configured
 
 </details>
 
@@ -560,10 +562,10 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 
 </details>
 
-#### Priorität 3: Network Configuration (3.x) - ✅ TEILWEISE ABGESCHLOSSEN (8/15 Checks)
+#### Priorität 3: Network Configuration (3.x) - ✅ ABGESCHLOSSEN (15/15 Checks)
 
 <details>
-<summary>Network Devices (3.1.x) - 3 Checks ✅</summary>
+<summary>Network Devices (3.1.x) - 3 Checks ✅ (v2.5.0)</summary>
 
 - [x] 3.1.1 - Ensure wireless interfaces are disabled
 - [x] 3.1.2 - Ensure Bluetooth is disabled
@@ -572,7 +574,7 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 <details>
-<summary>Network Protocols (3.2.x) - 5 Checks ✅</summary>
+<summary>Network Protocols (3.2.x) - 5 Checks ✅ (v2.5.0)</summary>
 
 - [x] 3.2.1 - Ensure DCCP is disabled
 - [x] 3.2.2 - Ensure SCTP is disabled
@@ -583,15 +585,15 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 <details>
-<summary>IPv6 Configuration (3.4.x) - 7 Checks</summary>
+<summary>IPv6 & TCP Wrappers Configuration (3.4.x) - 7 Checks ✅ ABGESCHLOSSEN (v2.6.0)</summary>
 
-- [ ] 3.4.1 - Ensure IPv6 router advertisements are not accepted
-- [ ] 3.4.2 - Ensure IPv6 redirects are not accepted
-- [ ] 3.4.3 - Ensure IPv6 is disabled (if not needed)
-- [ ] 3.4.4 - Ensure TCP Wrappers is installed
-- [ ] 3.4.5 - Ensure /etc/hosts.allow is configured
-- [ ] 3.4.6 - Ensure /etc/hosts.deny is configured
-- [ ] 3.4.7 - Ensure permissions on /etc/hosts.allow are configured
+- [x] 3.4.1 - Ensure IPv6 router advertisements are not accepted
+- [x] 3.4.2 - Ensure IPv6 redirects are not accepted
+- [x] 3.4.3 - Ensure IPv6 is disabled (if not needed)
+- [x] 3.4.4 - Ensure TCP Wrappers is installed
+- [x] 3.4.5 - Ensure /etc/hosts.allow is configured
+- [x] 3.4.6 - Ensure /etc/hosts.deny is configured
+- [x] 3.4.7 - Ensure permissions on /etc/hosts.allow are configured
 
 </details>
 
@@ -630,17 +632,21 @@ Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+
 </details>
 
 #### Phase 5 Zusammenfassung:
-- **Neue Checks implementiert:** 19 Checks ✅
-  - Warning Banners (1.8.x): 6 Checks ✅
-  - Software Updates (1.2.x): 2 Checks ✅
-  - Network Devices (3.1.x): 3 Checks ✅
-  - Network Protocols (3.2.x): 5 Checks ✅
-  - Filesystem Configuration (1.1.3.x): 3 Checks ✅
-- **Verbleibende Phase 5 Checks:** 47-57 Checks
-- **Aktueller Stand:** 253 Checks (~63% Coverage)
+- **Neue Checks implementiert:** 36 Checks ✅
+  - **v2.5.0 (19 Checks):**
+    - Warning Banners (1.8.x): 6 Checks ✅
+    - Software Updates (1.2.x): 2 Checks ✅
+    - Network Devices (3.1.x): 3 Checks ✅
+    - Network Protocols (3.2.x): 5 Checks ✅
+    - Filesystem Configuration (1.1.3.x): 3 Checks ✅
+  - **v2.6.0 (17 Checks) - Sprint 1:**
+    - sudo Configuration (5.2.x): 10 Checks ✅
+    - IPv6 & TCP Wrappers (3.4.x): 7 Checks ✅
+- **Verbleibende Phase 5 Checks:** 30-40 Checks
+- **Aktueller Stand:** 270 Checks (~67% Coverage)
 - **Ziel nach Phase 5:** 300-310 Checks (~75% Coverage)
-- **Fokus:** Vervollständigung der Initial Setup, sudo/Access Control, Network Hardening
-- **Timeline:** v3.0.0 - v3.5.0
+- **Fokus:** User Environment (5.5.x), Filesystem Integrity (1.5.x), Additional Services
+- **Timeline:** v2.7.0 - v3.0.0
 
 ---
 
@@ -787,8 +793,26 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Details.
 - Filesystem Configuration (1.1.3.x - 3 Checks)
 - **Gesamt:** 253 Checks (~63% Coverage)
 
-### v3.0.0 (In Arbeit)
-- Weitere CIS Checks (Phase 5 Fortsetzung)
+### v2.6.0 ✅ ABGESCHLOSSEN (2025-11-06) - Sprint 1
+- sudo Configuration (5.2.x - 10 Checks)
+  - Neue SudoAuditor Klasse
+  - Privilege Escalation Controls
+  - sudo Logging & Audit Konfiguration
+  - NOPASSWD Restrictions
+  - su Command Access Restrictions
+- IPv6 & Network Hardening (3.4.x - 7 Checks)
+  - IPv6 Router Advertisements & Redirects
+  - TCP Wrappers Configuration
+  - hosts.allow/hosts.deny Configuration & Permissions
+- **Gesamt:** 270 Checks (~67% Coverage)
+
+### v2.7.0 (In Arbeit) - Sprint 2
+- User Environment (5.5.x - 5 Checks)
+- Filesystem Integrity (1.5.x - 4 Checks)
+- **Geplant gesamt:** 279+ Checks (~70% Coverage)
+
+### v3.0.0 (Geplant)
+- Weitere CIS Checks (Phase 5 Abschluss)
 - **Geplant gesamt:** 300+ Checks (~75% Coverage)
 
 ---
