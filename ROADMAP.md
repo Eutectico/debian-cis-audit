@@ -457,7 +457,221 @@
 5. **Job Schedulers (2.4.x)** (9 Checks) - cron & at ✅
 
 **Checks nach Phase 4:** 234 Checks (~58%)
-**Ziel:** 400+ Checks (~100%)
+
+### 🚀 Phase 5: High Coverage Goal (v3.0.0+) - GEPLANT
+**Ziel:** 300+ Checks (~75% Coverage)
+
+Phase 5 fokussiert sich auf die verbleibenden kritischen CIS-Abschnitte, um 75%+ Coverage zu erreichen.
+
+#### Priorität 1: Remaining Initial Setup (1.x) - ~20 Checks
+
+<details>
+<summary>Filesystem Configuration (1.1.3.x) - 3 Checks</summary>
+
+- [ ] 1.1.3.1 - Ensure nodev option set on /var partition
+- [ ] 1.1.3.2 - Ensure nosuid option set on /var partition
+- [ ] 1.1.3.3 - Ensure noexec option set on /var partition
+
+</details>
+
+<details>
+<summary>Configure Software Updates (1.2.x) - 2 Checks</summary>
+
+- [ ] 1.2.1 - Ensure package manager repositories are configured
+- [ ] 1.2.2 - Ensure GPG keys are configured
+
+</details>
+
+<details>
+<summary>Filesystem Integrity (1.5.x) - 4 Checks</summary>
+
+- [ ] 1.5.1 - Ensure bootloader config is not overwritten
+- [ ] 1.5.2 - Ensure permissions on bootloader config are configured
+- [ ] 1.5.3 - Ensure authentication required for single user mode
+- [ ] 1.5.4 - Ensure core dumps are restricted
+
+</details>
+
+<details>
+<summary>Mandatory Access Controls (1.6.x) - 11 Checks</summary>
+
+- [ ] 1.6.1.1 - Ensure SELinux is installed
+- [ ] 1.6.1.2 - Ensure SELinux is not disabled in bootloader configuration
+- [ ] 1.6.1.3 - Ensure SELinux policy is configured
+- [ ] 1.6.1.4 - Ensure the SELinux mode is enforcing or permissive
+- [ ] 1.6.1.5 - Ensure the SELinux mode is enforcing
+- [ ] 1.6.1.6 - Ensure no unconfined services exist
+- [ ] 1.6.1.7 - Ensure SETroubleshoot is not installed
+- [ ] 1.6.1.8 - Ensure the MCS Translation Service (mcstrans) is not installed
+- [ ] 1.6.2.1 - Ensure SELinux or AppArmor is installed
+- [ ] 1.6.2.2 - Ensure filesystem integrity checking is configured
+- [ ] 1.6.2.3 - Ensure permissions on integrity check DB are configured
+
+**Note:** Checks 1.6.1.x sind SELinux-spezifisch. Für Debian sind 1.3.1.x (AppArmor) bereits implementiert.
+
+</details>
+
+#### Priorität 2: Access Control & Authentication (5.x) - ~25 Checks
+
+<details>
+<summary>sudo Configuration (5.2.x) - 10 Checks</summary>
+
+- [ ] 5.2.1 - Ensure sudo is installed
+- [ ] 5.2.2 - Ensure sudo commands use pty
+- [ ] 5.2.3 - Ensure sudo log file exists
+- [ ] 5.2.4 - Ensure users must provide password for privilege escalation
+- [ ] 5.2.5 - Ensure re-authentication for privilege escalation is not disabled globally
+- [ ] 5.2.6 - Ensure sudo authentication timeout is configured correctly
+- [ ] 5.2.7 - Ensure access to the su command is restricted
+- [ ] 5.2.8 - Ensure sudo log file permissions are configured
+- [ ] 5.2.9 - Ensure sudoers file is configured
+- [ ] 5.2.10 - Ensure sudo log file size is configured
+
+</details>
+
+<details>
+<summary>Additional User Environment (5.5.x) - 5 Checks</summary>
+
+- [ ] 5.5.1 - Ensure default user shell timeout is configured
+- [ ] 5.5.2 - Ensure default user umask is configured
+- [ ] 5.5.3 - Ensure tmout is configured
+- [ ] 5.5.4 - Ensure default group for the root account is GID 0
+- [ ] 5.5.5 - Ensure root is the only UID 0 account
+
+</details>
+
+<details>
+<summary>User Accounts (5.6.x) - 10 Checks</summary>
+
+- [ ] 5.6.1 - Ensure accounts in /etc/passwd use shadowed passwords
+- [ ] 5.6.2 - Ensure password fields are not empty
+- [ ] 5.6.3 - Ensure all groups in /etc/passwd exist in /etc/group
+- [ ] 5.6.4 - Ensure shadow group is empty
+- [ ] 5.6.5 - Ensure no duplicate UIDs exist
+- [ ] 5.6.6 - Ensure no duplicate GIDs exist
+- [ ] 5.6.7 - Ensure no duplicate user names exist
+- [ ] 5.6.8 - Ensure no duplicate group names exist
+- [ ] 5.6.9 - Ensure root PATH Integrity
+- [ ] 5.6.10 - Ensure all interactive users home directories exist
+
+**Note:** Viele dieser Checks überschneiden sich mit bereits implementierten 7.2.x Checks.
+
+</details>
+
+#### Priorität 3: Network Configuration (3.x) - ~15 Checks
+
+<details>
+<summary>Network Devices (3.1.x) - 3 Checks</summary>
+
+- [ ] 3.1.1 - Ensure wireless interfaces are disabled
+- [ ] 3.1.2 - Ensure Bluetooth is disabled
+- [ ] 3.1.3 - Ensure packet redirect sending is disabled
+
+</details>
+
+<details>
+<summary>Network Protocols (3.2.x) - 5 Checks</summary>
+
+- [ ] 3.2.1 - Ensure DCCP is disabled
+- [ ] 3.2.2 - Ensure SCTP is disabled
+- [ ] 3.2.3 - Ensure RDS is disabled
+- [ ] 3.2.4 - Ensure TIPC is disabled
+- [ ] 3.2.5 - Ensure IPv6 is disabled
+
+</details>
+
+<details>
+<summary>IPv6 Configuration (3.4.x) - 7 Checks</summary>
+
+- [ ] 3.4.1 - Ensure IPv6 router advertisements are not accepted
+- [ ] 3.4.2 - Ensure IPv6 redirects are not accepted
+- [ ] 3.4.3 - Ensure IPv6 is disabled (if not needed)
+- [ ] 3.4.4 - Ensure TCP Wrappers is installed
+- [ ] 3.4.5 - Ensure /etc/hosts.allow is configured
+- [ ] 3.4.6 - Ensure /etc/hosts.deny is configured
+- [ ] 3.4.7 - Ensure permissions on /etc/hosts.allow are configured
+
+</details>
+
+#### Priorität 4: Warning Banners (1.8.x) - 6 Checks
+
+<details>
+<summary>Command Line Warning Banners - 6 Checks</summary>
+
+- [ ] 1.8.1 - Ensure message of the day is configured properly
+- [ ] 1.8.2 - Ensure local login warning banner is configured properly
+- [ ] 1.8.3 - Ensure remote login warning banner is configured properly
+- [ ] 1.8.4 - Ensure permissions on /etc/motd are configured
+- [ ] 1.8.5 - Ensure permissions on /etc/issue are configured
+- [ ] 1.8.6 - Ensure permissions on /etc/issue.net are configured
+
+</details>
+
+#### Priorität 5: Additional Services & Daemons (2.2.x) - ~10 Checks
+
+<details>
+<summary>Special Purpose Services - 10 Checks</summary>
+
+- [ ] 2.2.1 - Ensure time synchronization is in use (Meta-Check)
+- [ ] 2.2.2 - Ensure X Window System is not installed
+- [ ] 2.2.3 - Ensure Avahi Server is not installed
+- [ ] 2.2.4 - Ensure CUPS is not installed
+- [ ] 2.2.5 - Ensure DHCP Server is not installed
+- [ ] 2.2.6 - Ensure LDAP server is not installed
+- [ ] 2.2.7 - Ensure NFS is not installed
+- [ ] 2.2.8 - Ensure DNS Server is not installed
+- [ ] 2.2.9 - Ensure FTP Server is not installed
+- [ ] 2.2.10 - Ensure HTTP server is not installed
+
+**Note:** Viele dieser Checks überschneiden sich mit 2.1.x (bereits implementiert).
+
+</details>
+
+#### Phase 5 Zusammenfassung:
+- **Geschätzte neue Checks:** 66-76 Checks
+- **Ziel nach Phase 5:** 300-310 Checks (~75% Coverage)
+- **Fokus:** Vervollständigung der Initial Setup, sudo/Access Control, Network Hardening
+- **Timeline:** v3.0.0 - v3.5.0
+
+---
+
+## 🎯 Langfristige Ziele
+
+### Phase 6: Full CIS Compliance (v4.0.0+)
+**Ziel:** 400+ Checks (~100% Coverage)
+
+Verbleibende Bereiche für vollständige CIS Benchmark Konformität:
+
+1. **Additional Filesystem Checks** (~10 Checks)
+   - Erweiterte Mount-Optionen
+   - Filesystem-spezifische Konfigurationen
+
+2. **Process Hardening** (~15 Checks)
+   - Core dumps
+   - Address Space Layout Randomization (ASLR)
+   - Prelink
+
+3. **Additional Audit Rules** (~20 Checks)
+   - Spezielle Audit-Regeln für kritische Dateien
+   - Erweiterte System-Call Überwachung
+
+4. **Remaining Service Checks** (~10 Checks)
+   - Spezielle Dienste und Daemons
+   - Service-spezifische Konfigurationen
+
+5. **Network Stack Hardening** (~10 Checks)
+   - Erweiterte TCP/IP Stack Parameter
+   - Netzwerk-Protokoll-spezifische Einstellungen
+
+6. **Documentation & Compliance Checks** (~5 Checks)
+   - System-Dokumentation
+   - Compliance-Berichte
+
+**Finale Statistik bei 100% Implementierung:**
+- Total: 400+ Checks
+- Alle CIS Debian 12 Benchmark v1.1.0 Abschnitte abgedeckt
+- Vollständige Auditierbarkeit
+- Enterprise-ready
 
 ---
 
