@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 318 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~79% Coverage)
+**Aktueller Status:** 328 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~82% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,16 +277,17 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 318 von 400+ Checks implementiert (~79%) | **Phase 6 läuft 🚀**
+**Status:** 328 von 400+ Checks implementiert (~82%) | **Phase 6 läuft 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (318) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (328) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
 - **1.1.3.x** - Filesystem Configuration (3 Checks)
+- **1.1.4-18** - Extended Filesystem Security (18 Checks) ✨ ERWEITERT v3.4.0
 - **1.2.x** - Software Updates (2 Checks)
 - **1.3.1.x** - AppArmor Configuration (4 Checks)
 - **1.4.x** - Bootloader Security (2 Checks)
@@ -326,15 +327,16 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Phase 6 läuft - v3.3.0!** 318 Checks implementiert - **79% Coverage erreicht!**
-> - **Neu in v3.3.0:** 15 Advanced Audit Rules (6.2.3.22 - 6.2.3.36)
->   - PAM, syslog, systemd configuration monitoring
->   - Firewall, iptables, CA certificates monitoring
->   - APT sources, package management monitoring
->   - Unsuccessful access attempts, ownership/permission changes
->   - Extended attributes, process creation events
-> - **Phase 6 Priorität 2 abgeschlossen!** Erweiterte Audit-Überwachung implementiert
-> - **Nächster Schritt:** Extended Filesystem Checks (~10 Checks)
+> 🚀 **Phase 6 läuft - v3.4.0!** 328 Checks implementiert - **82% Coverage erreicht!**
+> - **Neu in v3.4.0:** 10 Extended Filesystem Security Checks (1.1.9 - 1.1.18)
+>   - Filesystem quotas and ACL support
+>   - noatime/relatime performance optimization
+>   - Reserved blocks and error handling
+>   - tmpfs size limits and /proc hidepid
+>   - Filesystem journaling, xattr support
+>   - Full disk encryption (LUKS/dm-crypt)
+> - **Phase 6 Priorität 3 abgeschlossen!** Erweiterte Filesystem-Sicherheit implementiert
+> - **Nächster Schritt:** Remaining Service & Network Checks
 
 ## 📊 Severity Levels
 

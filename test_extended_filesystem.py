@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
 Test Script for Extended Filesystem Checks
-Phase 6 Priority 3: Extended Filesystem Security (1.1.4.x - 1.1.8)
+Phase 6 Priority 3: Extended Filesystem Security (1.1.4 - 1.1.18)
 
-Total checks: 8
+Total checks: 18 (8 basic + 10 extended)
+- Basic checks (1.1.4.x - 1.1.8): tmp, /dev/shm, sticky bit, automounting, USB
+- Extended checks (1.1.9 - 1.1.18): quotas, ACL, noatime, reserved blocks, error handling,
+  tmpfs limits, /proc hidepid, journaling, xattr, encryption
 """
 
 import sys
@@ -21,8 +24,14 @@ from debian_cis_audit import (
 def test_extended_filesystem_checks():
     """Test Extended Filesystem implementation"""
     print("=" * 80)
-    print("EXTENDED FILESYSTEM TEST: Mount Options & Security (1.1.4-1.1.8)")
+    print("EXTENDED FILESYSTEM TEST: Mount Options & Security (1.1.4-1.1.18)")
     print("=" * 80)
+    print()
+    print("Testing 18 extended filesystem security checks:")
+    print("  • Basic checks (8): /tmp, /dev/shm, sticky bit, automounting, USB")
+    print("  • Extended checks (10): quotas, ACL, noatime, reserved blocks,")
+    print("    error handling, tmpfs limits, /proc hidepid, journaling,")
+    print("    xattr support, encryption")
     print()
 
     reporter = AuditReporter()

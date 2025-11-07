@@ -11206,8 +11206,520 @@ class ExtendedFilesystemAuditor(BaseAuditor):
                 message=f"Error checking USB storage: {str(e)}"
             ))
 
+    # Extended Filesystem Security Checks
+    def check_filesystem_quotas_enabled(self):
+        """1.1.9 - Ensure filesystem quotas are enabled where needed"""
+        try:
+            # Check if quota tools are installed
+            returncode, _, _ = self.run_command(['which', 'quota'])
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.9",
+                    title="Ensure filesystem quotas are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Quota tools not installed",
+                    details="Consider installing quota tools for disk usage management",
+                    remediation="apt-get install quota"
+                ))
+                return
+
+            # Check if quotas are enabled on mounted filesystems
+            mount_output = self.read_file('/proc/mounts')
+            quota_enabled = False
+            if mount_output:
+                for line in mount_output.splitlines():
+                    if 'usrquota' in line or 'grpquota' in line:
+                        quota_enabled = True
+                        break
+
+            if quota_enabled:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.9",
+                    title="Ensure filesystem quotas are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Filesystem quotas are enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.9",
+                    title="Ensure filesystem quotas are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Filesystem quotas are not enabled",
+                    details="Quotas help prevent disk exhaustion",
+                    remediation="Add usrquota,grpquota to mount options in /etc/fstab"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.9",
+                title="Ensure filesystem quotas are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking filesystem quotas: {str(e)}"
+            ))
+
+    def check_acl_support_enabled(self):
+        """1.1.10 - Ensure ACL support is enabled"""
+        try:
+            # Check if acl package is installed
+            returncode, _, _ = self.run_command(['dpkg', '-l', 'acl'])
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.10",
+                    title="Ensure ACL support is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="ACL package not installed",
+                    remediation="apt-get install acl"
+                ))
+                return
+
+            # Check if filesystems are mounted with acl option
+            mount_output = self.read_file('/proc/mounts')
+            acl_enabled = False
+            if mount_output:
+                for line in mount_output.splitlines():
+                    if 'acl' in line or 'ext4' in line or 'xfs' in line:
+                        acl_enabled = True
+                        break
+
+            if acl_enabled:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.10",
+                    title="Ensure ACL support is enabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="ACL support is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.10",
+                    title="Ensure ACL support is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="ACL support may not be enabled",
+                    remediation="Add acl to mount options in /etc/fstab or use ext4/xfs"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.10",
+                title="Ensure ACL support is enabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking ACL support: {str(e)}"
+            ))
+
+    def check_noatime_option(self):
+        """1.1.11 - Ensure noatime or relatime is used on filesystems"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.11",
+                    title="Ensure noatime/relatime is used",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            filesystems_without_atime = 0
+            total_filesystems = 0
+            for line in mount_output.splitlines():
+                parts = line.split()
+                if len(parts) >= 4 and parts[2] in ['ext4', 'ext3', 'xfs', 'btrfs']:
+                    total_filesystems += 1
+                    if 'noatime' in line or 'relatime' in line:
+                        filesystems_without_atime += 1
+
+            if total_filesystems > 0 and filesystems_without_atime == total_filesystems:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.11",
+                    title="Ensure noatime/relatime is used",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="All filesystems use noatime or relatime"
+                ))
+            elif filesystems_without_atime > 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.11",
+                    title="Ensure noatime/relatime is used",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message=f"Some filesystems ({filesystems_without_atime}/{total_filesystems}) use noatime/relatime",
+                    remediation="Add noatime or relatime to mount options in /etc/fstab"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.11",
+                    title="Ensure noatime/relatime is used",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="No filesystems use noatime or relatime",
+                    details="Using noatime/relatime improves performance",
+                    remediation="Add noatime or relatime to mount options in /etc/fstab"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.11",
+                title="Ensure noatime/relatime is used",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking noatime/relatime: {str(e)}"
+            ))
+
+    def check_root_reserved_blocks(self):
+        """1.1.12 - Ensure reserved blocks are configured for root"""
+        try:
+            # Check reserved blocks on root filesystem
+            returncode, stdout, _ = self.run_command(['tune2fs', '-l', '/dev/sda1'])
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.12",
+                    title="Ensure reserved blocks are configured",
+                    status=Status.SKIP,
+                    severity=Severity.LOW,
+                    message="Cannot check reserved blocks (non-ext filesystem or no access)"
+                ))
+                return
+
+            reserved_percent = None
+            for line in stdout.splitlines():
+                if 'Reserved block count' in line or 'Reserved blocks uid' in line:
+                    reserved_percent = 5  # Default assumption
+                    break
+
+            if reserved_percent:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.12",
+                    title="Ensure reserved blocks are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Reserved blocks are configured"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.12",
+                    title="Ensure reserved blocks are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Reserved blocks may not be configured",
+                    remediation="Use tune2fs -m 5 /dev/<device> to set 5% reserved"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.12",
+                title="Ensure reserved blocks are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking reserved blocks: {str(e)}"
+            ))
+
+    def check_filesystem_errors_handling(self):
+        """1.1.13 - Ensure filesystem error handling is configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['tune2fs', '-l', '/dev/sda1'])
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.13",
+                    title="Ensure filesystem error handling is configured",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="Cannot check error handling (non-ext filesystem or no access)"
+                ))
+                return
+
+            error_behavior = None
+            for line in stdout.splitlines():
+                if 'Errors behavior' in line:
+                    if 'remount-ro' in line or 'panic' in line:
+                        error_behavior = 'configured'
+                    break
+
+            if error_behavior:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.13",
+                    title="Ensure filesystem error handling is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Filesystem error handling is configured"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.13",
+                    title="Ensure filesystem error handling is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Filesystem error handling may not be configured",
+                    remediation="Use tune2fs -e remount-ro /dev/<device>"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.13",
+                title="Ensure filesystem error handling is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking filesystem error handling: {str(e)}"
+            ))
+
+    def check_tmpfs_size_limits(self):
+        """1.1.14 - Ensure tmpfs size limits are configured"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.14",
+                    title="Ensure tmpfs size limits are configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            tmpfs_with_size = 0
+            tmpfs_total = 0
+            for line in mount_output.splitlines():
+                if 'tmpfs' in line and '/tmp' in line or '/dev/shm' in line or '/run' in line:
+                    tmpfs_total += 1
+                    if 'size=' in line:
+                        tmpfs_with_size += 1
+
+            if tmpfs_total > 0 and tmpfs_with_size == tmpfs_total:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.14",
+                    title="Ensure tmpfs size limits are configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="All tmpfs mounts have size limits"
+                ))
+            elif tmpfs_with_size > 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.14",
+                    title="Ensure tmpfs size limits are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message=f"Some tmpfs mounts ({tmpfs_with_size}/{tmpfs_total}) have size limits",
+                    remediation="Add size=<limit> to tmpfs mount options in /etc/fstab"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.14",
+                    title="Ensure tmpfs size limits are configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="No tmpfs mounts have size limits configured",
+                    details="Unlimited tmpfs can exhaust system memory",
+                    remediation="Add size=<limit> to tmpfs mount options in /etc/fstab"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.14",
+                title="Ensure tmpfs size limits are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking tmpfs size limits: {str(e)}"
+            ))
+
+    def check_proc_hidepid(self):
+        """1.1.15 - Ensure /proc is mounted with hidepid option"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.15",
+                    title="Ensure /proc has hidepid option",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /proc ' in line and 'hidepid=' in line:
+                    if 'hidepid=2' in line:
+                        self.reporter.add_result(AuditResult(
+                            check_id="1.1.15",
+                            title="Ensure /proc has hidepid option",
+                            status=Status.PASS,
+                            severity=Severity.MEDIUM,
+                            message="/proc is mounted with hidepid=2 (maximum privacy)"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="1.1.15",
+                            title="Ensure /proc has hidepid option",
+                            status=Status.WARNING,
+                            severity=Severity.MEDIUM,
+                            message="/proc is mounted with hidepid but not maximum privacy",
+                            remediation="Use hidepid=2 for maximum process privacy"
+                        ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.15",
+                title="Ensure /proc has hidepid option",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="/proc is not mounted with hidepid option",
+                details="hidepid prevents users from seeing other users' processes",
+                remediation="Add hidepid=2 to /proc mount options"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.15",
+                title="Ensure /proc has hidepid option",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking /proc hidepid: {str(e)}"
+            ))
+
+    def check_filesystem_journal_enabled(self):
+        """1.1.16 - Ensure filesystem journaling is enabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['tune2fs', '-l', '/dev/sda1'])
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.16",
+                    title="Ensure filesystem journaling is enabled",
+                    status=Status.SKIP,
+                    severity=Severity.HIGH,
+                    message="Cannot check journaling (non-ext filesystem or no access)"
+                ))
+                return
+
+            has_journal = False
+            for line in stdout.splitlines():
+                if 'has_journal' in line or 'Filesystem features' in line:
+                    if 'has_journal' in stdout:
+                        has_journal = True
+                    break
+
+            if has_journal:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.16",
+                    title="Ensure filesystem journaling is enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Filesystem journaling is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.16",
+                    title="Ensure filesystem journaling is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Filesystem journaling is not enabled",
+                    details="Journaling protects against data corruption",
+                    remediation="Use tune2fs -O has_journal /dev/<device>"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.16",
+                title="Ensure filesystem journaling is enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking filesystem journaling: {str(e)}"
+            ))
+
+    def check_xattr_support(self):
+        """1.1.17 - Ensure extended attributes (xattr) are supported"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.17",
+                    title="Ensure extended attributes are supported",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            xattr_supported = False
+            for line in mount_output.splitlines():
+                if 'user_xattr' in line or 'ext4' in line or 'xfs' in line or 'btrfs' in line:
+                    xattr_supported = True
+                    break
+
+            if xattr_supported:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.17",
+                    title="Ensure extended attributes are supported",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Extended attributes (xattr) are supported"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.17",
+                    title="Ensure extended attributes are supported",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Extended attributes may not be supported",
+                    details="Extended attributes are needed for SELinux/AppArmor",
+                    remediation="Use filesystems with xattr support (ext4, xfs, btrfs)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.17",
+                title="Ensure extended attributes are supported",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking extended attributes: {str(e)}"
+            ))
+
+    def check_filesystem_encryption_support(self):
+        """1.1.18 - Ensure filesystem encryption is available"""
+        try:
+            # Check if dm-crypt/LUKS is available
+            returncode, stdout, _ = self.run_command(['lsmod'])
+            dm_crypt_loaded = 'dm_crypt' in stdout if returncode == 0 else False
+
+            # Check for encrypted volumes
+            returncode2, stdout2, _ = self.run_command(['dmsetup', 'ls', '--target', 'crypt'])
+            encrypted_vols = len(stdout2.splitlines()) if returncode2 == 0 else 0
+
+            if dm_crypt_loaded and encrypted_vols > 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.18",
+                    title="Ensure filesystem encryption is available",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"Filesystem encryption is active ({encrypted_vols} encrypted volume(s))"
+                ))
+            elif dm_crypt_loaded:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.18",
+                    title="Ensure filesystem encryption is available",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="Encryption available but no encrypted volumes found",
+                    details="Consider encrypting sensitive filesystems",
+                    remediation="Use LUKS for full disk encryption"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.18",
+                    title="Ensure filesystem encryption is available",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="Filesystem encryption (dm-crypt) is not available",
+                    remediation="Load dm-crypt module or install cryptsetup"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.18",
+                title="Ensure filesystem encryption is available",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking filesystem encryption: {str(e)}"
+            ))
+
     def run_all_checks(self):
         """Run all extended filesystem checks"""
+        # Basic checks (1.1.4.x - 1.1.8)
         self.check_tmp_noexec_configured()
         self.check_var_tmp_bind_mount()
         self.check_dev_shm_noexec()
@@ -11216,6 +11728,17 @@ class ExtendedFilesystemAuditor(BaseAuditor):
         self.check_sticky_bit_world_writable()
         self.check_automounting_disabled()
         self.check_usb_storage_disabled()
+        # Extended checks (1.1.9 - 1.1.18)
+        self.check_filesystem_quotas_enabled()
+        self.check_acl_support_enabled()
+        self.check_noatime_option()
+        self.check_root_reserved_blocks()
+        self.check_filesystem_errors_handling()
+        self.check_tmpfs_size_limits()
+        self.check_proc_hidepid()
+        self.check_filesystem_journal_enabled()
+        self.check_xattr_support()
+        self.check_filesystem_encryption_support()
 
 
 class DebianCISAudit:

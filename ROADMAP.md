@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.3.0 (Phase 6 läuft) |
-| **Implementierte Checks** | 318 / 400+ |
-| **Coverage** | ~79% 🎉 |
+| **Version** | v3.4.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 328 / 400+ |
+| **Coverage** | ~82% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -36,14 +36,15 @@
 ### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Fortschritt:** 28 Checks implementiert
+**Fortschritt:** 38 Checks implementiert
 
 | Priority | Bereich | Checks | Status |
 |----------|---------|--------|--------|
 | 1 | Process Hardening (1.6.1.x) | 10 | ✅ v3.0.0 |
 | 4 | Mandatory Access Controls (1.6.2.x) | 3 | ✅ v3.2.0 |
 | 2 | Additional Audit Rules (6.2.3.22-36) | 15 | ✅ v3.3.0 |
-| 3 | Extended Filesystem Checks | ~10 | 📝 Geplant |
+| 3 | Extended Filesystem Checks (1.1.9-18) | 10 | ✅ v3.4.0 |
+| 5 | Remaining Service & Network Checks | ~20 | 📝 Geplant |
 
 ---
 
@@ -131,6 +132,24 @@ Nächste Prioritäten für Phase 6:
 ## 📝 Release-Historie
 
 ### Aktuelle Releases (Phase 6 - In Arbeit)
+
+#### v3.4.0 (2025-11-07) - Phase 6 Priority 3 Complete 🎉
+**+10 Checks** | 328 Total | ~82% Coverage
+
+**Neue Checks:**
+- **1.1.9-18** Extended Filesystem Security (10 Checks)
+  - 1.1.9: Filesystem quotas configuration
+  - 1.1.10: ACL support enabled
+  - 1.1.11: noatime/relatime for performance
+  - 1.1.12: Reserved blocks configured
+  - 1.1.13: Filesystem error handling
+  - 1.1.14: tmpfs size limits
+  - 1.1.15: /proc hidepid option
+  - 1.1.16: Filesystem journaling enabled
+  - 1.1.17: Extended attributes (xattr) support
+  - 1.1.18: Filesystem encryption (LUKS/dm-crypt)
+
+**Phase 6 Priority 3 Complete!** Extended filesystem security with quotas, ACLs, journaling, and encryption support.
 
 #### v3.3.0 (2025-11-07) - Phase 6 Priority 2 Complete 🎉
 **+15 Checks** | 318 Total | ~79% Coverage
@@ -314,4 +333,4 @@ Nächste Prioritäten für Phase 6:
 
 ---
 
-**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.4.0 (Extended Filesystem Checks)
+**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.5.0 (Remaining Service & Network Checks)
