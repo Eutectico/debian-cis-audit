@@ -2317,8 +2317,44 @@ class ServiceAuditor(BaseAuditor):
                 remediation=f"systemctl disable --now {service_name}"
             ))
 
+    def check_time_synchronization(self):
+        """2.2.1 - Ensure time synchronization is in use (Meta-Check)"""
+        # Check if any time synchronization service is active
+        time_sync_services = [
+            'systemd-timesyncd.service',
+            'chrony.service',
+            'ntp.service'
+        ]
+
+        active_services = []
+        for service in time_sync_services:
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-active', service])
+            if returncode == 0 and stdout.strip() == 'active':
+                active_services.append(service)
+
+        if active_services:
+            self.reporter.add_result(AuditResult(
+                check_id='2.2.1',
+                title='Ensure time synchronization is in use',
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message=f'Time synchronization is active: {", ".join(active_services)}'
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id='2.2.1',
+                title='Ensure time synchronization is in use',
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message='No time synchronization service is active',
+                remediation='Install and enable systemd-timesyncd, chrony, or ntp'
+            ))
+
     def run_all_checks(self):
         """Run all service checks"""
+        # 2.2.1 - Time Synchronization Meta-Check (1 check)
+        self.check_time_synchronization()
+
         # 2.1.x - Additional Services (22 checks)
         self.check_service_disabled('autofs', '2.1.1', 'Ensure autofs services are not in use')
         self.check_service_disabled('avahi-daemon', '2.1.2', 'Ensure avahi daemon services are not in use')
@@ -6532,6 +6568,138 @@ class UserAuditor(BaseAuditor):
                 message="All user dot files are properly configured"
             ))
 
+    def check_root_path_integrity(self):
+        """5.6.9 - Ensure root PATH Integrity"""
+        issues = []
+
+        try:
+            # Get root's PATH
+            root_path = os.environ.get('PATH', '')
+            if not root_path:
+                # Try to get from root's shell environment
+                returncode, stdout, _ = self.run_command(['su', '-', 'root', '-c', 'echo $PATH'])
+                if returncode == 0:
+                    root_path = stdout.strip()
+
+            if not root_path:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.6.9",
+                    title="Ensure root PATH Integrity",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot determine root's PATH"
+                ))
+                return
+
+            # Check each directory in PATH
+            path_dirs = root_path.split(':')
+            for path_dir in path_dirs:
+                # Check for empty directory (.)
+                if not path_dir or path_dir == '.':
+                    issues.append("PATH contains empty directory or '.'")
+                    continue
+
+                # Check if directory exists
+                if not os.path.exists(path_dir):
+                    issues.append(f"PATH contains non-existent directory: {path_dir}")
+                    continue
+
+                # Check directory ownership and permissions
+                try:
+                    stat_info = os.stat(path_dir)
+
+                    # Check ownership (should be root)
+                    if stat_info.st_uid != 0:
+                        owner_name = pwd.getpwuid(stat_info.st_uid).pw_name
+                        issues.append(f"PATH directory {path_dir} owned by {owner_name} (not root)")
+
+                    # Check permissions (should not be group or world writable)
+                    mode = stat.S_IMODE(stat_info.st_mode)
+                    if mode & 0o022:
+                        issues.append(f"PATH directory {path_dir} is group or world writable ({oct(mode)})")
+
+                except (OSError, KeyError) as e:
+                    issues.append(f"Cannot stat PATH directory {path_dir}: {str(e)}")
+
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.9",
+                title="Ensure root PATH Integrity",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking root PATH: {str(e)}"
+            ))
+            return
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.9",
+                title="Ensure root PATH Integrity",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="Root PATH integrity issues found",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Ensure root's PATH only contains secure directories owned by root"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.9",
+                title="Ensure root PATH Integrity",
+                status=Status.PASS,
+                severity=Severity.HIGH,
+                message="Root PATH integrity verified"
+            ))
+
+    def check_all_users_have_home_dirs(self):
+        """5.6.10 - Ensure all interactive users' home directories exist"""
+        issues = []
+
+        try:
+            for user in pwd.getpwall():
+                # Check only interactive users (UID >= 1000, has valid shell)
+                if user.pw_uid >= 1000 and user.pw_uid != 65534:  # Skip nobody
+                    # Check if user has a valid shell (not /usr/sbin/nologin or /bin/false)
+                    if user.pw_shell not in ['/usr/sbin/nologin', '/bin/false', '/sbin/nologin']:
+                        home_dir = user.pw_dir
+
+                        # Check if home directory is defined
+                        if not home_dir or home_dir == '/':
+                            issues.append(f"User {user.pw_name}: no valid home directory defined")
+                            continue
+
+                        # Check if home directory exists
+                        if not os.path.exists(home_dir):
+                            issues.append(f"User {user.pw_name}: home directory {home_dir} does not exist")
+
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.10",
+                title="Ensure all interactive users home directories exist",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking home directories: {str(e)}"
+            ))
+            return
+
+        if issues:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.10",
+                title="Ensure all interactive users home directories exist",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="Interactive users without home directories found",
+                details="\n".join(f"  - {issue}" for issue in issues),
+                remediation="Create missing home directories: mkhomedir_helper <username>"
+            ))
+        else:
+            self.reporter.add_result(AuditResult(
+                check_id="5.6.10",
+                title="Ensure all interactive users home directories exist",
+                status=Status.PASS,
+                severity=Severity.MEDIUM,
+                message="All interactive users have valid home directories"
+            ))
+
     def run_all_checks(self):
         """Run all user/group checks"""
         self.check_shadowed_passwords()
@@ -6544,6 +6712,8 @@ class UserAuditor(BaseAuditor):
         self.check_duplicate_groupnames()
         self.check_user_home_directories()
         self.check_user_dot_files()
+        self.check_root_path_integrity()
+        self.check_all_users_have_home_dirs()
 
 
 class PAMAuditor(BaseAuditor):

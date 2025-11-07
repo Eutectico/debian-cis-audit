@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 279 Checks implementiert | 400+ Checks im Benchmark | Aktiv in Entwicklung (~70% Coverage)
+**Aktueller Status:** 282 Checks implementiert | 400+ Checks im Benchmark | Phase 5 Abgeschlossen (~71% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 279 von 400+ Checks implementiert (~70%)
+**Status:** 282 von 400+ Checks implementiert (~71%) | **Phase 5 Complete ✅**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (279) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (282) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -294,6 +294,7 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **1.7.x** - GNOME Display Manager (10 Checks)
 - **1.8.x** - Warning Banners (6 Checks)
 - **2.1.x** - Server Services (22 Checks)
+- **2.2.1** - Time Synchronization Meta-Check (1 Check) ✨ NEU v2.8.0
 - **2.3.x** - Time Synchronization (7 Checks)
 - **2.4.x** - Job Schedulers (9 Checks)
 - **3.1.x** - Network Devices (3 Checks)
@@ -307,7 +308,8 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **5.2.x** - sudo Configuration (10 Checks)
 - **5.3.x** - PAM Configuration (5 Checks)
 - **5.4.x** - User Accounts and Environment (9 Checks)
-- **5.5.x** - User Environment & Root Security (5 Checks) ✨ NEU v2.7.0
+- **5.5.x** - User Environment & Root Security (5 Checks)
+- **5.6.x** - User Account Validation (2 Checks) ✨ NEU v2.8.0
 - **6.1.1.x** - systemd-journald Configuration (5 Checks)
 - **6.1.2.x** - rsyslog Configuration (6 Checks)
 - **6.2.1.x** - Auditd Installation & Service (2 Checks)
@@ -323,9 +325,12 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Neu in v2.7.0:** 9 neue Checks für User Environment und Filesystem Integrity! 🎉 **70% Coverage erreicht!**
-> - User Environment & Root Security (5.5.x): TMOUT Configuration, umask, Root Account Security
-> - Filesystem Integrity & Bootloader (1.5.x): Bootloader Protection, Single-User Authentication, Core Dump Restrictions
+> 🎉 **Phase 5 Abgeschlossen mit v2.8.0!** 282 Checks implementiert - **71% Coverage erreicht!**
+> - **Neu in v2.8.0:** 3 zusätzliche Checks (User Account Validation + Time Sync Meta-Check)
+>   - User Account Validation (5.6.x): root PATH Integrity, Interactive users home directories
+>   - Time Synchronization (2.2.1): Meta-Check für aktive Zeitsynchronisation
+> - **Phase 5 gesamt:** 48 neue Checks (v2.5.0 - v2.8.0)
+> - **Nächster Schritt:** Phase 6 - Full CIS Compliance (400+ Checks)
 
 ## 📊 Severity Levels
 

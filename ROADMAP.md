@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v2.7.0 |
-| **Implementierte Checks** | 279 / 400+ |
-| **Coverage** | ~70% 🎉 |
+| **Version** | v2.8.0 |
+| **Implementierte Checks** | 282 / 400+ |
+| **Coverage** | ~71% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -21,17 +21,17 @@
 - **Phase 3** (v2.1.0): Logging, Audit, Integrity, PAM, Permissions - 92 Checks
 - **Phase 4** (v2.2.0-v2.4.0): Firewalls, AppArmor, Bootloader, GDM, Time, Cron - 40 Checks
 
-### 🔄 Phase 5: High Coverage Goal (IN ARBEIT)
-**45 Checks** | v2.5.0 - v2.7.0 | **Ziel:** 300+ Checks (~75%)
+### ✅ Phase 5: High Coverage Goal (ABGESCHLOSSEN)
+**48 Checks** | v2.5.0 - v2.8.0 | **Ziel erreicht:** ~71% Coverage
 
-| Sprint | Version | Checks | Bereiche |
-|--------|---------|--------|----------|
-| Sprint 0 | v2.5.0 ✅ | +19 | Warning Banners, Software Updates, Network, Filesystem |
-| Sprint 1 | v2.6.0 ✅ | +17 | sudo Configuration, IPv6 & TCP Wrappers |
-| Sprint 2 | v2.7.0 ✅ | +9 | User Environment, Filesystem Integrity |
-| Sprint 3 | v2.8.0 📝 | ~3 | User Accounts, Additional Services |
+| Sprint | Version | Checks | Bereiche | Status |
+|--------|---------|--------|----------|--------|
+| Sprint 0 | v2.5.0 | +19 | Warning Banners, Software Updates, Network, Filesystem | ✅ |
+| Sprint 1 | v2.6.0 | +17 | sudo Configuration, IPv6 & TCP Wrappers | ✅ |
+| Sprint 2 | v2.7.0 | +9 | User Environment, Filesystem Integrity | ✅ |
+| Sprint 3 | v2.8.0 | +3 | User Accounts, Additional Services | ✅ |
 
-**Aktueller Stand:** 279 Checks | **Verbleibend:** ~21 Checks bis Phase 5 Abschluss
+**Endergebnis:** 282 Checks | **Phase 5 Erfolgreich Abgeschlossen** 🎉
 
 ### 📅 Phase 6: Full CIS Compliance (GEPLANT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
@@ -59,10 +59,11 @@
 | 1.7.x - GNOME Display Manager | 10 | v2.3.0 |
 | 1.8.x - Warning Banners | 6 | v2.5.0 |
 
-### 2. Services (2.x) - 38 Checks ✅
+### 2. Services (2.x) - 39 Checks ✅
 | Bereich | Checks | Version |
 |---------|--------|---------|
 | 2.1.x - Server Services | 22 | v2.0.0 |
+| 2.2.1 - Time Synchronization Meta-Check | 1 | v2.8.0 🆕 |
 | 2.3.x - Time Synchronization | 7 | v2.3.0 |
 | 2.4.x - Job Schedulers | 9 | v2.4.0 |
 
@@ -81,14 +82,15 @@
 | 4.3.x - nftables | 10 | v2.1.0 |
 | 4.4.x - iptables | 5 | v2.1.0 |
 
-### 5. Access Control (5.x) - 51 Checks ✅
+### 5. Access Control (5.x) - 53 Checks ✅
 | Bereich | Checks | Version |
 |---------|--------|---------|
 | 5.1.x - SSH Server Configuration | 22 | v2.0.0 |
-| 5.2.x - sudo Configuration | 10 | v2.6.0 🆕 |
+| 5.2.x - sudo Configuration | 10 | v2.6.0 |
 | 5.3.x - PAM Configuration | 5 | v2.0.0 |
 | 5.4.x - User Accounts & Environment | 9 | v2.0.0 |
-| 5.5.x - User Environment & Root Security | 5 | v2.7.0 🆕 |
+| 5.5.x - User Environment & Root Security | 5 | v2.7.0 |
+| 5.6.x - User Account Validation | 2 | v2.8.0 🆕 |
 
 ### 6. System Maintenance (6.x) - 50 Checks ✅
 | Bereich | Checks | Version |
@@ -101,7 +103,7 @@
 | 6.2.4.x - Audit File Access | 9 | v2.0.0 |
 | 6.3.x - Integrity Checking | 3 | v2.0.0 |
 
-### 7. File Permissions & Users (7.x) - 42 Checks ✅
+### 7. File Permissions & Users (7.x) - 22 Checks ✅
 | Bereich | Checks | Version |
 |---------|--------|---------|
 | 7.1.x - System File Permissions | 12 | v2.0.0 |
@@ -111,21 +113,35 @@
 
 ## 🚀 Nächste Schritte
 
-### Sprint 3: Abschluss Phase 5 (v2.8.0)
-**Ziel:** 282+ Checks (~71% Coverage)
+### 🎉 Phase 5 Abgeschlossen - Auf zu Phase 6!
 
-| Check-Bereich | Neue Checks | Aufwand | Priorität |
-|---------------|-------------|---------|-----------|
-| 5.6.x - User Accounts | 2 | 30 Min | Mittel |
-| 2.2.x - Additional Services | 1 | 15 Min | Niedrig |
+Phase 5 wurde erfolgreich mit v2.8.0 abgeschlossen. Insgesamt wurden 48 neue Checks hinzugefügt, die Coverage ist von 58% auf 71% gestiegen.
 
-> **Hinweis:** Die meisten 5.6.x und 2.2.x Checks sind bereits durch 7.2.x und 2.1.x abgedeckt.
+### Phase 6: Full CIS Compliance (v3.0.0+)
+**Ziel:** 400+ Checks (~100% Coverage)
+
+Nächste Prioritäten für Phase 6:
 
 ---
 
 ## 📝 Release-Historie
 
-### Aktuelle Releases (Phase 5)
+### Aktuelle Releases (Phase 5 - Abgeschlossen)
+
+#### v2.8.0 (2025-11-07) - Sprint 3 / Phase 5 Complete ✅
+**+3 Checks** | 282 Total | ~71% Coverage 🎉
+
+**Neue Checks:**
+- **5.6.x** User Account Validation (2 Checks)
+  - 5.6.9: root PATH Integrity
+  - 5.6.10: Interactive users home directories exist
+
+- **2.2.1** Time Synchronization Meta-Check (1 Check)
+  - Meta-Check zur Validierung aktiver Zeitsynchronisation
+
+**Hinweis:** Die meisten 5.6.x und 2.2.x Checks waren bereits durch 7.2.x und 2.1.x abgedeckt.
+
+**🎉 PHASE 5 ERFOLGREICH ABGESCHLOSSEN!** 282 Checks (~71% Coverage)
 
 #### v2.7.0 (2025-11-06) - Sprint 2 ✅
 **+9 Checks** | 279 Total | ~70% Coverage 🎉
@@ -249,4 +265,4 @@
 
 ---
 
-**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v2.8.0 (Sprint 3)
+**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.0.0 (Phase 6 Start)
