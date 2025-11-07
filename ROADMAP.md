@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v2.8.0 |
-| **Implementierte Checks** | 282 / 400+ |
-| **Coverage** | ~71% 🎉 |
+| **Version** | v3.0.0 (Phase 6 gestartet) |
+| **Implementierte Checks** | 292 / 400+ |
+| **Coverage** | ~73% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -33,20 +33,23 @@
 
 **Endergebnis:** 282 Checks | **Phase 5 Erfolgreich Abgeschlossen** 🎉
 
-### 📅 Phase 6: Full CIS Compliance (GEPLANT)
+### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Prioritäten:**
-1. Process Hardening (~15 Checks) - ASLR, Core Dumps erweitert
-2. Additional Audit Rules (~20 Checks) - Erweiterte Audit-Überwachung
-3. Extended Filesystem Checks (~10 Checks) - Quotas, Extended Attributes
-4. Mandatory Access Controls (~3 Checks) - Meta-Checks für AppArmor/SELinux
+**Fortschritt:** 10 Checks implementiert
+
+| Priority | Bereich | Checks | Status |
+|----------|---------|--------|--------|
+| 1 | Process Hardening (1.6.1.x) | 10 | ✅ v3.0.0 |
+| 2 | Additional Audit Rules | ~20 | 📝 Geplant |
+| 3 | Extended Filesystem Checks | ~10 | 📝 Geplant |
+| 4 | Mandatory Access Controls | ~3 | 📝 Geplant |
 
 ---
 
 ## 📋 Implementierte CIS-Bereiche
 
-### 1. Initial Setup (1.x) - 50 Checks ✅
+### 1. Initial Setup (1.x) - 60 Checks ✅
 | Bereich | Checks | Version |
 |---------|--------|---------|
 | 1.1.1.x - Filesystem Kernel Modules | 9 | v2.0.0 |
@@ -55,7 +58,8 @@
 | 1.2.x - Software Updates | 2 | v2.5.0 |
 | 1.3.1.x - AppArmor | 4 | v2.2.0 |
 | 1.4.x - Bootloader Security | 2 | v2.2.0 |
-| 1.5.x - Filesystem Integrity | 4 | v2.7.0 🆕 |
+| 1.5.x - Filesystem Integrity | 4 | v2.7.0 |
+| 1.6.1.x - Process Hardening & Kernel Security | 10 | v3.0.0 🆕 |
 | 1.7.x - GNOME Display Manager | 10 | v2.3.0 |
 | 1.8.x - Warning Banners | 6 | v2.5.0 |
 
@@ -126,7 +130,29 @@ Nächste Prioritäten für Phase 6:
 
 ## 📝 Release-Historie
 
-### Aktuelle Releases (Phase 5 - Abgeschlossen)
+### Aktuelle Releases (Phase 6 - In Arbeit)
+
+#### v3.0.0 (2025-11-07) - Phase 6 Started 🚀
+**+10 Checks** | 292 Total | ~73% Coverage
+
+**Neue Checks:**
+- **1.6.1.x** Process Hardening & Kernel Security (10 Checks)
+  - 1.6.1.1: ASLR enabled
+  - 1.6.1.2: Prelink not installed
+  - 1.6.1.3: Yama ptrace_scope configured
+  - 1.6.1.4: kernel.dmesg_restrict set
+  - 1.6.1.5: kernel.kptr_restrict set
+  - 1.6.1.6: kernel.unprivileged_bpf_disabled set
+  - 1.6.1.7: kernel.unprivileged_userns_clone disabled
+  - 1.6.1.8: kernel.perf_event_paranoid set
+  - 1.6.1.9: kernel.kexec_load_disabled set
+  - 1.6.1.10: /dev/mem and /dev/kmem restricted
+
+**Phase 6 Priority 1 Complete!** Critical kernel security hardening implemented.
+
+---
+
+### Frühere Releases (Phase 5 - Abgeschlossen)
 
 #### v2.8.0 (2025-11-07) - Sprint 3 / Phase 5 Complete ✅
 **+3 Checks** | 282 Total | ~71% Coverage 🎉
@@ -265,4 +291,4 @@ Nächste Prioritäten für Phase 6:
 
 ---
 
-**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.0.0 (Phase 6 Start)
+**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.1.0 (Additional Audit Rules)

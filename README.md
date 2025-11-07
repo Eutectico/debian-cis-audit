@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 282 Checks implementiert | 400+ Checks im Benchmark | Phase 5 Abgeschlossen (~71% Coverage)
+**Aktueller Status:** 292 Checks implementiert | 400+ Checks im Benchmark | Phase 6 Gestartet (~73% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 282 von 400+ Checks implementiert (~71%) | **Phase 5 Complete ✅**
+**Status:** 292 von 400+ Checks implementiert (~73%) | **Phase 6 Started 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (282) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (292) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -290,7 +290,8 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **1.2.x** - Software Updates (2 Checks)
 - **1.3.1.x** - AppArmor Configuration (4 Checks)
 - **1.4.x** - Bootloader Security (2 Checks)
-- **1.5.x** - Filesystem Integrity (4 Checks) ✨ NEU v2.7.0
+- **1.5.x** - Filesystem Integrity (4 Checks)
+- **1.6.1.x** - Process Hardening & Kernel Security (10 Checks) ✨ NEU v3.0.0
 - **1.7.x** - GNOME Display Manager (10 Checks)
 - **1.8.x** - Warning Banners (6 Checks)
 - **2.1.x** - Server Services (22 Checks)
@@ -325,12 +326,12 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🎉 **Phase 5 Abgeschlossen mit v2.8.0!** 282 Checks implementiert - **71% Coverage erreicht!**
-> - **Neu in v2.8.0:** 3 zusätzliche Checks (User Account Validation + Time Sync Meta-Check)
->   - User Account Validation (5.6.x): root PATH Integrity, Interactive users home directories
->   - Time Synchronization (2.2.1): Meta-Check für aktive Zeitsynchronisation
-> - **Phase 5 gesamt:** 48 neue Checks (v2.5.0 - v2.8.0)
-> - **Nächster Schritt:** Phase 6 - Full CIS Compliance (400+ Checks)
+> 🚀 **Phase 6 Gestartet mit v3.0.0!** 292 Checks implementiert - **73% Coverage erreicht!**
+> - **Neu in v3.0.0:** 10 Process Hardening & Kernel Security Checks (1.6.1.x)
+>   - ASLR, prelink, ptrace_scope, dmesg_restrict, kptr_restrict
+>   - BPF, userns_clone, perf_event, kexec, /dev/mem restrictions
+> - **Phase 6 Priorität 1 abgeschlossen!** Kritische Kernel-Sicherheit implementiert
+> - **Nächster Schritt:** Additional Audit Rules (~20 Checks)
 
 ## 📊 Severity Levels
 

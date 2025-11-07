@@ -10095,6 +10095,465 @@ class SudoAuditor(BaseAuditor):
         self.check_sudo_logfile_size()
 
 
+class ProcessHardeningAuditor(BaseAuditor):
+    """Process Hardening and Kernel Security auditor for CIS checks 1.6.x"""
+
+    def check_aslr_enabled(self):
+        """1.6.1.1 - Ensure address space layout randomization (ASLR) is enabled"""
+        try:
+            aslr_value = self.read_file('/proc/sys/kernel/randomize_va_space')
+
+            if not aslr_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.1",
+                    title="Ensure address space layout randomization (ASLR) is enabled",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="Cannot read /proc/sys/kernel/randomize_va_space"
+                ))
+                return
+
+            aslr_value = aslr_value.strip()
+
+            if aslr_value == '2':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.1",
+                    title="Ensure address space layout randomization (ASLR) is enabled",
+                    status=Status.PASS,
+                    severity=Severity.CRITICAL,
+                    message="ASLR is fully enabled (value: 2)"
+                ))
+            elif aslr_value == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.1",
+                    title="Ensure address space layout randomization (ASLR) is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.CRITICAL,
+                    message="ASLR is partially enabled (value: 1)",
+                    details="Conservative randomization enabled, but full randomization recommended",
+                    remediation="Set kernel.randomize_va_space = 2 in /etc/sysctl.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.1",
+                    title="Ensure address space layout randomization (ASLR) is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message=f"ASLR is disabled (value: {aslr_value})",
+                    remediation="Set kernel.randomize_va_space = 2 in /etc/sysctl.conf and run sysctl -p"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.1",
+                title="Ensure address space layout randomization (ASLR) is enabled",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Error checking ASLR: {str(e)}"
+            ))
+
+    def check_prelink_not_installed(self):
+        """1.6.1.2 - Ensure prelink is not installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'prelink'])
+
+            if returncode != 0 or 'Status: install ok installed' not in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.2",
+                    title="Ensure prelink is not installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="prelink is not installed"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.2",
+                    title="Ensure prelink is not installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="prelink is installed",
+                    details="prelink can interfere with ASLR and security features",
+                    remediation="apt purge prelink"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.2",
+                title="Ensure prelink is not installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking prelink: {str(e)}"
+            ))
+
+    def check_kernel_yama_ptrace_scope(self):
+        """1.6.1.3 - Ensure Yama ptrace_scope is configured"""
+        try:
+            ptrace_value = self.read_file('/proc/sys/kernel/yama/ptrace_scope')
+
+            if not ptrace_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.3",
+                    title="Ensure Yama ptrace_scope is configured",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/sys/kernel/yama/ptrace_scope (Yama LSM may not be enabled)"
+                ))
+                return
+
+            ptrace_value = ptrace_value.strip()
+
+            if ptrace_value in ['1', '2', '3']:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.3",
+                    title="Ensure Yama ptrace_scope is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"ptrace_scope is properly restricted (value: {ptrace_value})"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.3",
+                    title="Ensure Yama ptrace_scope is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"ptrace_scope is not restricted (value: {ptrace_value})",
+                    details="Value 0 allows any process to ptrace any other process (security risk)",
+                    remediation="Set kernel.yama.ptrace_scope = 1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.3",
+                title="Ensure Yama ptrace_scope is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking ptrace_scope: {str(e)}"
+            ))
+
+    def check_kernel_dmesg_restrict(self):
+        """1.6.1.4 - Ensure kernel.dmesg_restrict is set"""
+        try:
+            dmesg_value = self.read_file('/proc/sys/kernel/dmesg_restrict')
+
+            if not dmesg_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.4",
+                    title="Ensure kernel.dmesg_restrict is set",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot read /proc/sys/kernel/dmesg_restrict"
+                ))
+                return
+
+            dmesg_value = dmesg_value.strip()
+
+            if dmesg_value == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.4",
+                    title="Ensure kernel.dmesg_restrict is set",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="dmesg_restrict is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.4",
+                    title="Ensure kernel.dmesg_restrict is set",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="dmesg_restrict is not enabled",
+                    details="Unprivileged users can read kernel ring buffer messages",
+                    remediation="Set kernel.dmesg_restrict = 1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.4",
+                title="Ensure kernel.dmesg_restrict is set",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking dmesg_restrict: {str(e)}"
+            ))
+
+    def check_kernel_kptr_restrict(self):
+        """1.6.1.5 - Ensure kernel.kptr_restrict is set"""
+        try:
+            kptr_value = self.read_file('/proc/sys/kernel/kptr_restrict')
+
+            if not kptr_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.5",
+                    title="Ensure kernel.kptr_restrict is set",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/sys/kernel/kptr_restrict"
+                ))
+                return
+
+            kptr_value = kptr_value.strip()
+
+            if kptr_value in ['1', '2']:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.5",
+                    title="Ensure kernel.kptr_restrict is set",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"kptr_restrict is properly set (value: {kptr_value})"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.5",
+                    title="Ensure kernel.kptr_restrict is set",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"kptr_restrict is not set (value: {kptr_value})",
+                    details="Kernel pointer addresses are exposed to all users",
+                    remediation="Set kernel.kptr_restrict = 2 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.5",
+                title="Ensure kernel.kptr_restrict is set",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking kptr_restrict: {str(e)}"
+            ))
+
+    def check_kernel_unprivileged_bpf_disabled(self):
+        """1.6.1.6 - Ensure kernel.unprivileged_bpf_disabled is set"""
+        try:
+            bpf_value = self.read_file('/proc/sys/kernel/unprivileged_bpf_disabled')
+
+            if not bpf_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.6",
+                    title="Ensure kernel.unprivileged_bpf_disabled is set",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="/proc/sys/kernel/unprivileged_bpf_disabled not available (kernel < 4.4)"
+                ))
+                return
+
+            bpf_value = bpf_value.strip()
+
+            if bpf_value == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.6",
+                    title="Ensure kernel.unprivileged_bpf_disabled is set",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="unprivileged_bpf_disabled is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.6",
+                    title="Ensure kernel.unprivileged_bpf_disabled is set",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="unprivileged_bpf_disabled is not enabled",
+                    details="Unprivileged users can use BPF system call",
+                    remediation="Set kernel.unprivileged_bpf_disabled = 1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.6",
+                title="Ensure kernel.unprivileged_bpf_disabled is set",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking unprivileged_bpf_disabled: {str(e)}"
+            ))
+
+    def check_kernel_unprivileged_userns_clone_disabled(self):
+        """1.6.1.7 - Ensure kernel.unprivileged_userns_clone is disabled"""
+        try:
+            userns_value = self.read_file('/proc/sys/kernel/unprivileged_userns_clone')
+
+            if not userns_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.7",
+                    title="Ensure kernel.unprivileged_userns_clone is disabled",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="/proc/sys/kernel/unprivileged_userns_clone not available (Debian-specific)"
+                ))
+                return
+
+            userns_value = userns_value.strip()
+
+            if userns_value == '0':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.7",
+                    title="Ensure kernel.unprivileged_userns_clone is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="unprivileged_userns_clone is disabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.7",
+                    title="Ensure kernel.unprivileged_userns_clone is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="unprivileged_userns_clone is enabled",
+                    details="Unprivileged users can create user namespaces (potential privilege escalation)",
+                    remediation="Set kernel.unprivileged_userns_clone = 0 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.7",
+                title="Ensure kernel.unprivileged_userns_clone is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking unprivileged_userns_clone: {str(e)}"
+            ))
+
+    def check_kernel_perf_event_paranoid(self):
+        """1.6.1.8 - Ensure kernel.perf_event_paranoid is set"""
+        try:
+            perf_value = self.read_file('/proc/sys/kernel/perf_event_paranoid')
+
+            if not perf_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.8",
+                    title="Ensure kernel.perf_event_paranoid is set",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot read /proc/sys/kernel/perf_event_paranoid"
+                ))
+                return
+
+            perf_value = perf_value.strip()
+            perf_int = int(perf_value)
+
+            if perf_int >= 2:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.8",
+                    title="Ensure kernel.perf_event_paranoid is set",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"perf_event_paranoid is properly restricted (value: {perf_value})"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.8",
+                    title="Ensure kernel.perf_event_paranoid is set",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"perf_event_paranoid is not sufficiently restricted (value: {perf_value})",
+                    details="Unprivileged users may have excessive access to performance monitoring",
+                    remediation="Set kernel.perf_event_paranoid = 2 in /etc/sysctl.conf"
+                ))
+        except (ValueError, Exception) as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.8",
+                title="Ensure kernel.perf_event_paranoid is set",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking perf_event_paranoid: {str(e)}"
+            ))
+
+    def check_kernel_kexec_load_disabled(self):
+        """1.6.1.9 - Ensure kernel.kexec_load_disabled is set"""
+        try:
+            kexec_value = self.read_file('/proc/sys/kernel/kexec_load_disabled')
+
+            if not kexec_value:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.9",
+                    title="Ensure kernel.kexec_load_disabled is set",
+                    status=Status.SKIP,
+                    severity=Severity.LOW,
+                    message="/proc/sys/kernel/kexec_load_disabled not available (kernel may not support it)"
+                ))
+                return
+
+            kexec_value = kexec_value.strip()
+
+            if kexec_value == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.9",
+                    title="Ensure kernel.kexec_load_disabled is set",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="kexec_load_disabled is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.9",
+                    title="Ensure kernel.kexec_load_disabled is set",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="kexec_load_disabled is not enabled",
+                    details="kexec allows loading and executing a different kernel",
+                    remediation="Set kernel.kexec_load_disabled = 1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.9",
+                title="Ensure kernel.kexec_load_disabled is set",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking kexec_load_disabled: {str(e)}"
+            ))
+
+    def check_dev_mem_restricted(self):
+        """1.6.1.10 - Ensure /dev/mem and /dev/kmem are restricted"""
+        try:
+            issues = []
+
+            # Check /dev/mem
+            if self.file_exists('/dev/mem'):
+                stat_info = self.get_file_stat('/dev/mem')
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+                    if mode & 0o044:  # Check if group or other have read access
+                        issues.append("/dev/mem is readable by group or others")
+
+            # Check /dev/kmem (usually not present in modern kernels)
+            if self.file_exists('/dev/kmem'):
+                stat_info = self.get_file_stat('/dev/kmem')
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+                    if mode & 0o044:
+                        issues.append("/dev/kmem is readable by group or others")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.10",
+                    title="Ensure /dev/mem and /dev/kmem are restricted",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Physical memory devices have excessive permissions",
+                    details="\n".join(f"  - {issue}" for issue in issues),
+                    remediation="chmod 600 /dev/mem /dev/kmem (if exists)"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.1.10",
+                    title="Ensure /dev/mem and /dev/kmem are restricted",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Physical memory devices are properly restricted"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.1.10",
+                title="Ensure /dev/mem and /dev/kmem are restricted",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking memory device permissions: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all process hardening checks"""
+        self.check_aslr_enabled()
+        self.check_prelink_not_installed()
+        self.check_kernel_yama_ptrace_scope()
+        self.check_kernel_dmesg_restrict()
+        self.check_kernel_kptr_restrict()
+        self.check_kernel_unprivileged_bpf_disabled()
+        self.check_kernel_unprivileged_userns_clone_disabled()
+        self.check_kernel_perf_event_paranoid()
+        self.check_kernel_kexec_load_disabled()
+        self.check_dev_mem_restricted()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -10151,6 +10610,10 @@ class DebianCISAudit:
         print("[*] Running Bootloader Security Checks...")
         bootloader_auditor = BootloaderAuditor(self.reporter)
         bootloader_auditor.run_all_checks()
+
+        print("[*] Running Process Hardening Checks...")
+        process_hardening_auditor = ProcessHardeningAuditor(self.reporter)
+        process_hardening_auditor.run_all_checks()
 
         print("[*] Running GNOME Display Manager Checks...")
         gdm_auditor = GDMAuditor(self.reporter)
