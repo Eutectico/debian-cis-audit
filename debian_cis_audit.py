@@ -11741,6 +11741,673 @@ class ExtendedFilesystemAuditor(BaseAuditor):
         self.check_filesystem_encryption_support()
 
 
+class ServiceSecurityAuditor(BaseAuditor):
+    """Additional Service Security and Network hardening checks"""
+
+    def check_postfix_inet_interfaces(self):
+        """2.1.23 - Ensure Postfix is configured for local-only"""
+        try:
+            postfix_conf = self.read_file('/etc/postfix/main.cf')
+            if not postfix_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="2.1.23",
+                    title="Ensure Postfix inet_interfaces is configured",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="Postfix configuration not found"
+                ))
+                return
+
+            if 'inet_interfaces = localhost' in postfix_conf or 'inet_interfaces = loopback-only' in postfix_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="2.1.23",
+                    title="Ensure Postfix inet_interfaces is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Postfix is configured for local-only"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="2.1.23",
+                    title="Ensure Postfix inet_interfaces is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Postfix may not be configured for local-only",
+                    remediation="Set 'inet_interfaces = localhost' in /etc/postfix/main.cf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="2.1.23",
+                title="Ensure Postfix inet_interfaces is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking Postfix configuration: {str(e)}"
+            ))
+
+    def check_unnecessary_packages(self):
+        """2.1.24 - Ensure unnecessary packages are removed"""
+        try:
+            unnecessary_packages = [
+                'telnet',
+                'rsh-client',
+                'rsh-redone-client',
+                'nis',
+                'talk',
+                'ntalk',
+                'ldap-utils'
+            ]
+
+            installed = []
+            for package in unnecessary_packages:
+                returncode, _, _ = self.run_command(['dpkg', '-l', package])
+                if returncode == 0:
+                    installed.append(package)
+
+            if not installed:
+                self.reporter.add_result(AuditResult(
+                    check_id="2.1.24",
+                    title="Ensure unnecessary packages are removed",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="No unnecessary packages found"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="2.1.24",
+                    title="Ensure unnecessary packages are removed",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"Unnecessary packages installed: {', '.join(installed)}",
+                    remediation=f"apt-get purge {' '.join(installed)}"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="2.1.24",
+                title="Ensure unnecessary packages are removed",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking packages: {str(e)}"
+            ))
+
+    def check_core_dumps_restricted(self):
+        """3.5.1 - Ensure core dumps are restricted (additional check)"""
+        try:
+            # Check systemd coredump configuration
+            coredump_conf = self.read_file('/etc/systemd/coredump.conf')
+            storage_none = False
+            if coredump_conf:
+                if 'Storage=none' in coredump_conf:
+                    storage_none = True
+
+            # Check limits.conf
+            limits_conf = self.read_file('/etc/security/limits.conf')
+            hard_core_0 = False
+            if limits_conf:
+                if '* hard core 0' in limits_conf:
+                    hard_core_0 = True
+
+            if storage_none and hard_core_0:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.1",
+                    title="Ensure core dumps are restricted",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Core dumps are properly restricted"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.1",
+                    title="Ensure core dumps are restricted",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Core dumps may not be fully restricted",
+                    remediation="Configure Storage=none in /etc/systemd/coredump.conf and '* hard core 0' in /etc/security/limits.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.1",
+                title="Ensure core dumps are restricted",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking core dumps: {str(e)}"
+            ))
+
+    def check_packet_redirect_sending(self):
+        """3.5.2 - Ensure packet redirect sending is disabled"""
+        try:
+            params = {
+                'net.ipv4.conf.all.send_redirects': '0',
+                'net.ipv4.conf.default.send_redirects': '0'
+            }
+
+            all_configured = True
+            for param, expected_value in params.items():
+                returncode, stdout, _ = self.run_command(['sysctl', param])
+                if returncode != 0 or expected_value not in stdout:
+                    all_configured = False
+                    break
+
+            if all_configured:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.2",
+                    title="Ensure packet redirect sending is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Packet redirect sending is disabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.2",
+                    title="Ensure packet redirect sending is disabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Packet redirect sending is not disabled",
+                    remediation="Set net.ipv4.conf.all.send_redirects=0 and net.ipv4.conf.default.send_redirects=0 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.2",
+                title="Ensure packet redirect sending is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking packet redirect: {str(e)}"
+            ))
+
+    def check_suspicious_packets_logged(self):
+        """3.5.3 - Ensure suspicious packets are logged"""
+        try:
+            params = {
+                'net.ipv4.conf.all.log_martians': '1',
+                'net.ipv4.conf.default.log_martians': '1'
+            }
+
+            all_configured = True
+            for param, expected_value in params.items():
+                returncode, stdout, _ = self.run_command(['sysctl', param])
+                if returncode != 0 or expected_value not in stdout:
+                    all_configured = False
+                    break
+
+            if all_configured:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.3",
+                    title="Ensure suspicious packets are logged",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Suspicious packet logging is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.3",
+                    title="Ensure suspicious packets are logged",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Suspicious packet logging is not enabled",
+                    remediation="Set net.ipv4.conf.all.log_martians=1 and net.ipv4.conf.default.log_martians=1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.3",
+                title="Ensure suspicious packets are logged",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking suspicious packet logging: {str(e)}"
+            ))
+
+    def check_tcp_syn_cookies(self):
+        """3.5.4 - Ensure TCP SYN Cookies are enabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['sysctl', 'net.ipv4.tcp_syncookies'])
+
+            if returncode == 0 and '= 1' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.4",
+                    title="Ensure TCP SYN Cookies are enabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="TCP SYN Cookies are enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.4",
+                    title="Ensure TCP SYN Cookies are enabled",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="TCP SYN Cookies are not enabled",
+                    details="TCP SYN Cookies protect against SYN flood attacks",
+                    remediation="Set net.ipv4.tcp_syncookies=1 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.4",
+                title="Ensure TCP SYN Cookies are enabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking TCP SYN Cookies: {str(e)}"
+            ))
+
+    def check_ipv6_router_advertisements_disabled(self):
+        """3.5.5 - Ensure IPv6 router advertisements are not accepted"""
+        try:
+            params = {
+                'net.ipv6.conf.all.accept_ra': '0',
+                'net.ipv6.conf.default.accept_ra': '0'
+            }
+
+            all_configured = True
+            for param, expected_value in params.items():
+                returncode, stdout, _ = self.run_command(['sysctl', param])
+                if returncode != 0 or expected_value not in stdout:
+                    all_configured = False
+                    break
+
+            if all_configured:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.5",
+                    title="Ensure IPv6 router advertisements are not accepted",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 router advertisements are disabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.5",
+                    title="Ensure IPv6 router advertisements are not accepted",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="IPv6 router advertisements are not disabled",
+                    remediation="Set net.ipv6.conf.all.accept_ra=0 and net.ipv6.conf.default.accept_ra=0 in /etc/sysctl.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.5",
+                title="Ensure IPv6 router advertisements are not accepted",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking IPv6 RA: {str(e)}"
+            ))
+
+    def check_uncommon_network_protocols(self):
+        """3.5.6 - Ensure uncommon network protocols are disabled"""
+        try:
+            protocols = ['dccp', 'sctp', 'rds', 'tipc']
+            disabled_protocols = []
+            enabled_protocols = []
+
+            for protocol in protocols:
+                returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', protocol])
+                if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                    disabled_protocols.append(protocol)
+                else:
+                    enabled_protocols.append(protocol)
+
+            if not enabled_protocols:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.6",
+                    title="Ensure uncommon network protocols are disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="All uncommon network protocols are disabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.6",
+                    title="Ensure uncommon network protocols are disabled",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message=f"Uncommon protocols not disabled: {', '.join(enabled_protocols)}",
+                    remediation=f"Add 'install <protocol> /bin/true' to /etc/modprobe.d/ for: {', '.join(enabled_protocols)}"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.6",
+                title="Ensure uncommon network protocols are disabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking network protocols: {str(e)}"
+            ))
+
+    def check_wireless_interfaces_disabled(self):
+        """3.5.7 - Ensure wireless interfaces are disabled"""
+        try:
+            returncode, stdout, _ = self.run_command(['iwconfig'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.7",
+                    title="Ensure wireless interfaces are disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="No wireless tools found (wireless disabled)"
+                ))
+                return
+
+            wireless_interfaces = []
+            for line in stdout.splitlines():
+                if 'IEEE 802.11' in line or 'ESSID' in line:
+                    interface = line.split()[0]
+                    if interface:
+                        wireless_interfaces.append(interface)
+
+            if not wireless_interfaces:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.7",
+                    title="Ensure wireless interfaces are disabled",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="No active wireless interfaces found"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="3.5.7",
+                    title="Ensure wireless interfaces are disabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message=f"Wireless interfaces found: {', '.join(wireless_interfaces)}",
+                    details="Consider disabling wireless on servers",
+                    remediation="Disable wireless interfaces if not needed"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="3.5.7",
+                title="Ensure wireless interfaces are disabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking wireless interfaces: {str(e)}"
+            ))
+
+    def check_system_accounts_nonlogin(self):
+        """5.7.1 - Ensure system accounts are secured"""
+        try:
+            passwd_content = self.read_file('/etc/passwd')
+            if not passwd_content:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.1",
+                    title="Ensure system accounts are secured",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot read /etc/passwd"
+                ))
+                return
+
+            system_accounts_with_shell = []
+            for line in passwd_content.splitlines():
+                if line and not line.startswith('#'):
+                    parts = line.split(':')
+                    if len(parts) >= 7:
+                        username = parts[0]
+                        uid = int(parts[2]) if parts[2].isdigit() else 0
+                        shell = parts[6]
+
+                        # System accounts (UID < 1000) should have nologin shell
+                        if uid < 1000 and uid != 0 and shell not in ['/usr/sbin/nologin', '/sbin/nologin', '/bin/false']:
+                            system_accounts_with_shell.append(username)
+
+            if not system_accounts_with_shell:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.1",
+                    title="Ensure system accounts are secured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="All system accounts have nologin shell"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.1",
+                    title="Ensure system accounts are secured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"System accounts with login shells: {', '.join(system_accounts_with_shell[:5])}",
+                    details=f"Total: {len(system_accounts_with_shell)} accounts",
+                    remediation="Set shell to /usr/sbin/nologin for system accounts"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.7.1",
+                title="Ensure system accounts are secured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking system accounts: {str(e)}"
+            ))
+
+    def check_default_accounts_locked(self):
+        """5.7.2 - Ensure default user accounts are locked"""
+        try:
+            default_accounts = ['games', 'news', 'gopher', 'ftp']
+            unlocked = []
+
+            for account in default_accounts:
+                returncode, stdout, _ = self.run_command(['passwd', '-S', account])
+                if returncode == 0 and ' L ' not in stdout and ' LK ' not in stdout:
+                    unlocked.append(account)
+
+            if not unlocked:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.2",
+                    title="Ensure default user accounts are locked",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Default accounts are locked or do not exist"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.2",
+                    title="Ensure default user accounts are locked",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"Unlocked default accounts: {', '.join(unlocked)}",
+                    remediation=f"Lock accounts with: passwd -l <username>"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.7.2",
+                title="Ensure default user accounts are locked",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking default accounts: {str(e)}"
+            ))
+
+    def check_inactive_password_lock(self):
+        """5.7.3 - Ensure inactive password lock is configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['useradd', '-D'])
+
+            inactive_days = None
+            if returncode == 0:
+                for line in stdout.splitlines():
+                    if 'INACTIVE' in line:
+                        parts = line.split('=')
+                        if len(parts) == 2:
+                            try:
+                                inactive_days = int(parts[1])
+                            except ValueError:
+                                pass
+
+            if inactive_days is not None and inactive_days <= 30 and inactive_days >= 1:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.3",
+                    title="Ensure inactive password lock is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message=f"Inactive password lock set to {inactive_days} days"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.3",
+                    title="Ensure inactive password lock is configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"Inactive password lock not properly configured (current: {inactive_days})",
+                    remediation="Run: useradd -D -f 30"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.7.3",
+                title="Ensure inactive password lock is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking inactive password lock: {str(e)}"
+            ))
+
+    def check_shell_timeout(self):
+        """5.7.4 - Ensure shell timeout is configured (additional check)"""
+        try:
+            bashrc = self.read_file('/etc/bash.bashrc')
+            profile = self.read_file('/etc/profile')
+
+            timeout_configured = False
+            if bashrc and 'TMOUT=' in bashrc:
+                timeout_configured = True
+            if profile and 'TMOUT=' in profile:
+                timeout_configured = True
+
+            if timeout_configured:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.4",
+                    title="Ensure shell timeout is configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Shell timeout (TMOUT) is configured"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="5.7.4",
+                    title="Ensure shell timeout is configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Shell timeout (TMOUT) may not be configured",
+                    remediation="Set TMOUT=900 in /etc/profile or /etc/bash.bashrc"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="5.7.4",
+                title="Ensure shell timeout is configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking shell timeout: {str(e)}"
+            ))
+
+    def check_root_path_integrity(self):
+        """7.2.11 - Ensure root PATH integrity (additional check)"""
+        try:
+            import os
+            root_path = os.environ.get('PATH', '')
+
+            issues = []
+            if root_path:
+                path_dirs = root_path.split(':')
+
+                # Check for empty entries
+                if '' in path_dirs or '::' in root_path:
+                    issues.append("Empty directory in PATH")
+
+                # Check for current directory
+                if '.' in path_dirs:
+                    issues.append("Current directory (.) in PATH")
+
+                # Check for trailing :
+                if root_path.endswith(':'):
+                    issues.append("Trailing : in PATH")
+
+            if not issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.11",
+                    title="Ensure root PATH integrity",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="root PATH has no integrity issues"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.11",
+                    title="Ensure root PATH integrity",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"root PATH integrity issues: {', '.join(issues)}",
+                    remediation="Fix PATH in /root/.bashrc and /etc/profile"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.11",
+                title="Ensure root PATH integrity",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking root PATH: {str(e)}"
+            ))
+
+    def check_all_users_home_directory_exists(self):
+        """7.2.12 - Ensure all users have home directories"""
+        try:
+            passwd_content = self.read_file('/etc/passwd')
+            if not passwd_content:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.12",
+                    title="Ensure all users have home directories",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /etc/passwd"
+                ))
+                return
+
+            missing_home = []
+            for line in passwd_content.splitlines():
+                if line and not line.startswith('#'):
+                    parts = line.split(':')
+                    if len(parts) >= 7:
+                        username = parts[0]
+                        uid = int(parts[2]) if parts[2].isdigit() else 0
+                        home_dir = parts[5]
+
+                        # Check regular users (UID >= 1000)
+                        if uid >= 1000 and not self.file_exists(home_dir):
+                            missing_home.append(f"{username} ({home_dir})")
+
+            if not missing_home:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.12",
+                    title="Ensure all users have home directories",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="All users have home directories"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="7.2.12",
+                    title="Ensure all users have home directories",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message=f"Users without home directories: {', '.join(missing_home[:3])}",
+                    details=f"Total: {len(missing_home)} users",
+                    remediation="Create home directories with: mkhomedir_helper <username>"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="7.2.12",
+                title="Ensure all users have home directories",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking home directories: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all service security checks"""
+        self.check_postfix_inet_interfaces()
+        self.check_unnecessary_packages()
+        self.check_core_dumps_restricted()
+        self.check_packet_redirect_sending()
+        self.check_suspicious_packets_logged()
+        self.check_tcp_syn_cookies()
+        self.check_ipv6_router_advertisements_disabled()
+        self.check_uncommon_network_protocols()
+        self.check_wireless_interfaces_disabled()
+        self.check_system_accounts_nonlogin()
+        self.check_default_accounts_locked()
+        self.check_inactive_password_lock()
+        self.check_shell_timeout()
+        self.check_root_path_integrity()
+        self.check_all_users_home_directory_exists()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -11849,6 +12516,10 @@ class DebianCISAudit:
         print("[*] Running Firewall Configuration Checks...")
         firewall_auditor = FirewallAuditor(self.reporter)
         firewall_auditor.run_all_checks()
+
+        print("[*] Running Service Security Checks...")
+        service_security_auditor = ServiceSecurityAuditor(self.reporter)
+        service_security_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)

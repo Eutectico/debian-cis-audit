@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.4.0 (Phase 6 läuft) |
-| **Implementierte Checks** | 328 / 400+ |
-| **Coverage** | ~82% 🎉 |
+| **Version** | v3.5.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 343 / 400+ |
+| **Coverage** | ~86% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -44,7 +44,7 @@
 | 4 | Mandatory Access Controls (1.6.2.x) | 3 | ✅ v3.2.0 |
 | 2 | Additional Audit Rules (6.2.3.22-36) | 15 | ✅ v3.3.0 |
 | 3 | Extended Filesystem Checks (1.1.9-18) | 10 | ✅ v3.4.0 |
-| 5 | Remaining Service & Network Checks | ~20 | 📝 Geplant |
+| 5 | Service Security & Network Hardening | 15 | ✅ v3.5.0 |
 
 ---
 
@@ -132,6 +132,32 @@ Nächste Prioritäten für Phase 6:
 ## 📝 Release-Historie
 
 ### Aktuelle Releases (Phase 6 - In Arbeit)
+
+#### v3.5.0 (2025-11-07) - Phase 6 Priority 5 Complete 🎉
+**+15 Checks** | 343 Total | ~86% Coverage
+
+**Neue Checks:**
+- **2.1.23-24** Service Security (2 Checks)
+  - 2.1.23: Postfix inet_interfaces local-only
+  - 2.1.24: Unnecessary packages removed
+- **3.5.1-7** Network Hardening (7 Checks)
+  - 3.5.1: Core dumps restricted
+  - 3.5.2: Packet redirect sending disabled
+  - 3.5.3: Suspicious packets logged
+  - 3.5.4: TCP SYN cookies enabled
+  - 3.5.5: IPv6 router advertisements disabled
+  - 3.5.6: Uncommon network protocols disabled
+  - 3.5.7: Wireless interfaces disabled
+- **5.7.1-4** User Security (4 Checks)
+  - 5.7.1: System accounts secured (non-login)
+  - 5.7.2: Default accounts locked
+  - 5.7.3: Inactive password lock configured
+  - 5.7.4: Shell timeout configured
+- **7.2.11-12** Path Integrity (2 Checks)
+  - 7.2.11: Root PATH integrity
+  - 7.2.12: User home directories exist
+
+**Phase 6 Priority 5 Complete!** Service security and network hardening with user account and path integrity checks.
 
 #### v3.4.0 (2025-11-07) - Phase 6 Priority 3 Complete 🎉
 **+10 Checks** | 328 Total | ~82% Coverage
@@ -333,4 +359,4 @@ Nächste Prioritäten für Phase 6:
 
 ---
 
-**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.5.0 (Remaining Service & Network Checks)
+**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.6.0 (Container & Virtualization Security)

@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 328 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~82% Coverage)
+**Aktueller Status:** 343 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~86% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 328 von 400+ Checks implementiert (~82%) | **Phase 6 läuft 🚀**
+**Status:** 343 von 400+ Checks implementiert (~86%) | **Phase 6 läuft 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (328) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (343) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -295,13 +295,14 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **1.6.1.x** - Process Hardening & Kernel Security (10 Checks) ✨ NEU v3.0.0
 - **1.7.x** - GNOME Display Manager (10 Checks)
 - **1.8.x** - Warning Banners (6 Checks)
-- **2.1.x** - Server Services (22 Checks)
+- **2.1.x** - Server Services (24 Checks) ✨ ERWEITERT v3.5.0
 - **2.2.1** - Time Synchronization Meta-Check (1 Check) ✨ NEU v2.8.0
 - **2.3.x** - Time Synchronization (7 Checks)
 - **2.4.x** - Job Schedulers (9 Checks)
 - **3.1.x** - Network Devices (3 Checks)
 - **3.2.x** - Network Protocols (5 Checks)
 - **3.3.x** - Network Kernel Parameters (11 Checks)
+- **3.5.x** - Additional Network Hardening (7 Checks) ✨ NEU v3.5.0
 - **3.4.x** - IPv6 & TCP Wrappers (7 Checks) ✨ NEU v2.6.0
 - **4.2.x** - UncomplicatedFirewall (7 Checks)
 - **4.3.x** - nftables (10 Checks)
@@ -311,6 +312,7 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **5.3.x** - PAM Configuration (5 Checks)
 - **5.4.x** - User Accounts and Environment (9 Checks)
 - **5.5.x** - User Environment & Root Security (5 Checks)
+- **5.7.x** - Additional User Security (4 Checks) ✨ NEU v3.5.0
 - **5.6.x** - User Account Validation (2 Checks) ✨ NEU v2.8.0
 - **6.1.1.x** - systemd-journald Configuration (5 Checks)
 - **6.1.2.x** - rsyslog Configuration (6 Checks)
@@ -320,23 +322,22 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **6.2.4.x** - Audit File Access (9 Checks)
 - **6.3.x** - Integrity Checking (3 Checks)
 - **7.1.x** - System File Permissions (12 Checks)
-- **7.2.x** - Local User and Group Settings (10 Checks)
+- **7.2.x** - Local User and Group Settings (12 Checks) ✨ ERWEITERT v3.5.0
 - **Weitere** - Legacy Checks (1 Check)
 
 </details>
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Phase 6 läuft - v3.4.0!** 328 Checks implementiert - **82% Coverage erreicht!**
-> - **Neu in v3.4.0:** 10 Extended Filesystem Security Checks (1.1.9 - 1.1.18)
->   - Filesystem quotas and ACL support
->   - noatime/relatime performance optimization
->   - Reserved blocks and error handling
->   - tmpfs size limits and /proc hidepid
->   - Filesystem journaling, xattr support
->   - Full disk encryption (LUKS/dm-crypt)
-> - **Phase 6 Priorität 3 abgeschlossen!** Erweiterte Filesystem-Sicherheit implementiert
-> - **Nächster Schritt:** Remaining Service & Network Checks
+> 🚀 **Phase 6 läuft - v3.5.0!** 343 Checks implementiert - **86% Coverage erreicht!**
+> - **Neu in v3.5.0:** 15 Service Security & Network Hardening Checks (2.1.23-24, 3.5.x, 5.7.x, 7.2.11-12)
+>   - Service security (Postfix, unnecessary packages)
+>   - Network hardening (core dumps, packet redirects, TCP SYN cookies, IPv6 RA)
+>   - Network protocols (uncommon protocols, wireless interfaces)
+>   - User account security (system accounts, default accounts, inactive passwords, shell timeout)
+>   - Path and home directory integrity
+> - **Phase 6 Priorität 5 abgeschlossen!** Service Security & Network Hardening implementiert
+> - **Nächster Schritt:** Container & Virtualization Security Checks
 
 ## 📊 Severity Levels
 
