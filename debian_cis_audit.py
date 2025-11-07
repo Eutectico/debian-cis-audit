@@ -10554,6 +10554,168 @@ class ProcessHardeningAuditor(BaseAuditor):
         self.check_dev_mem_restricted()
 
 
+class MandatoryAccessControlAuditor(BaseAuditor):
+    """Mandatory Access Control (MAC) auditor for CIS checks 1.6.2.x"""
+
+    def check_mac_installed(self):
+        """1.6.2.1 - Ensure a MAC system is installed (AppArmor or SELinux)"""
+        try:
+            # Check for AppArmor
+            apparmor_installed = False
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'apparmor'])
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                apparmor_installed = True
+
+            # Check for SELinux
+            selinux_installed = False
+            returncode, stdout, _ = self.run_command(['dpkg', '-s', 'selinux-basics'])
+            if returncode == 0 and 'Status: install ok installed' in stdout:
+                selinux_installed = True
+
+            if apparmor_installed or selinux_installed:
+                macs = []
+                if apparmor_installed:
+                    macs.append("AppArmor")
+                if selinux_installed:
+                    macs.append("SELinux")
+
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.1",
+                    title="Ensure a Mandatory Access Control system is installed",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"MAC system(s) installed: {', '.join(macs)}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.1",
+                    title="Ensure a Mandatory Access Control system is installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="No MAC system (AppArmor or SELinux) is installed",
+                    remediation="Install AppArmor: apt install apparmor apparmor-utils"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.2.1",
+                title="Ensure a Mandatory Access Control system is installed",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking MAC installation: {str(e)}"
+            ))
+
+    def check_mac_enabled(self):
+        """1.6.2.2 - Ensure a MAC system is enabled"""
+        try:
+            # Check if AppArmor is enabled
+            apparmor_enabled = False
+            returncode, stdout, _ = self.run_command(['aa-enabled'])
+            if returncode == 0 or 'Yes' in stdout:
+                apparmor_enabled = True
+
+            # Check if SELinux is enabled
+            selinux_enabled = False
+            if self.file_exists('/usr/sbin/getenforce'):
+                returncode, stdout, _ = self.run_command(['getenforce'])
+                if returncode == 0 and stdout.strip() in ['Enforcing', 'Permissive']:
+                    selinux_enabled = True
+
+            if apparmor_enabled or selinux_enabled:
+                macs = []
+                if apparmor_enabled:
+                    macs.append("AppArmor")
+                if selinux_enabled:
+                    macs.append("SELinux")
+
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.2",
+                    title="Ensure a Mandatory Access Control system is enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"MAC system(s) enabled: {', '.join(macs)}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.2",
+                    title="Ensure a Mandatory Access Control system is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="No MAC system is enabled",
+                    details="Neither AppArmor nor SELinux is active",
+                    remediation="Enable AppArmor: systemctl enable apparmor && systemctl start apparmor"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.2.2",
+                title="Ensure a Mandatory Access Control system is enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking MAC status: {str(e)}"
+            ))
+
+    def check_mac_enforcing(self):
+        """1.6.2.3 - Ensure MAC is in enforcing mode"""
+        try:
+            # Check AppArmor mode
+            apparmor_enforcing = False
+            returncode, stdout, _ = self.run_command(['aa-status', '--enabled'])
+            if returncode == 0:
+                # Check if profiles are in enforce mode
+                returncode, stdout, _ = self.run_command(['aa-status'])
+                if 'profiles are in enforce mode' in stdout:
+                    # Parse number of enforcing profiles
+                    import re
+                    match = re.search(r'(\d+)\s+profiles are in enforce mode', stdout)
+                    if match and int(match.group(1)) > 0:
+                        apparmor_enforcing = True
+
+            # Check SELinux mode
+            selinux_enforcing = False
+            if self.file_exists('/usr/sbin/getenforce'):
+                returncode, stdout, _ = self.run_command(['getenforce'])
+                if returncode == 0 and stdout.strip() == 'Enforcing':
+                    selinux_enforcing = True
+
+            if apparmor_enforcing or selinux_enforcing:
+                macs = []
+                if apparmor_enforcing:
+                    macs.append("AppArmor (enforcing)")
+                if selinux_enforcing:
+                    macs.append("SELinux (enforcing)")
+
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.3",
+                    title="Ensure Mandatory Access Control is in enforcing mode",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"MAC in enforcing mode: {', '.join(macs)}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.6.2.3",
+                    title="Ensure Mandatory Access Control is in enforcing mode",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="No MAC system is in enforcing mode",
+                    details="AppArmor may be in complain mode or SELinux in permissive mode",
+                    remediation="Set AppArmor profiles to enforce mode: aa-enforce /etc/apparmor.d/*"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.6.2.3",
+                title="Ensure Mandatory Access Control is in enforcing mode",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking MAC enforcement: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all MAC checks"""
+        self.check_mac_installed()
+        self.check_mac_enabled()
+        self.check_mac_enforcing()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -10614,6 +10776,10 @@ class DebianCISAudit:
         print("[*] Running Process Hardening Checks...")
         process_hardening_auditor = ProcessHardeningAuditor(self.reporter)
         process_hardening_auditor.run_all_checks()
+
+        print("[*] Running Mandatory Access Control Checks...")
+        mac_auditor = MandatoryAccessControlAuditor(self.reporter)
+        mac_auditor.run_all_checks()
 
         print("[*] Running GNOME Display Manager Checks...")
         gdm_auditor = GDMAuditor(self.reporter)

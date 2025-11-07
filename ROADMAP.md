@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.0.0 (Phase 6 gestartet) |
-| **Implementierte Checks** | 292 / 400+ |
-| **Coverage** | ~73% 🎉 |
+| **Version** | v3.1.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 295 / 400+ |
+| **Coverage** | ~74% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -36,14 +36,14 @@
 ### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Fortschritt:** 10 Checks implementiert
+**Fortschritt:** 13 Checks implementiert
 
 | Priority | Bereich | Checks | Status |
 |----------|---------|--------|--------|
 | 1 | Process Hardening (1.6.1.x) | 10 | ✅ v3.0.0 |
+| 4 | Mandatory Access Controls (1.6.2.x) | 3 | ✅ v3.1.0 |
 | 2 | Additional Audit Rules | ~20 | 📝 Geplant |
 | 3 | Extended Filesystem Checks | ~10 | 📝 Geplant |
-| 4 | Mandatory Access Controls | ~3 | 📝 Geplant |
 
 ---
 

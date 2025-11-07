@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 292 Checks implementiert | 400+ Checks im Benchmark | Phase 6 Gestartet (~73% Coverage)
+**Aktueller Status:** 295 Checks implementiert | 400+ Checks im Benchmark | Phase 6 Gestartet (~74% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,7 +277,7 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 292 von 400+ Checks implementiert (~73%) | **Phase 6 Started 🚀**
+**Status:** 295 von 400+ Checks implementiert (~74%) | **Phase 6 Started 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
@@ -326,7 +326,7 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Phase 6 Gestartet mit v3.0.0!** 292 Checks implementiert - **73% Coverage erreicht!**
+> 🚀 **Phase 6 Gestartet mit v3.0.0!** 295 Checks implementiert - **73% Coverage erreicht!**
 > - **Neu in v3.0.0:** 10 Process Hardening & Kernel Security Checks (1.6.1.x)
 >   - ASLR, prelink, ptrace_scope, dmesg_restrict, kptr_restrict
 >   - BPF, userns_clone, perf_event, kexec, /dev/mem restrictions
