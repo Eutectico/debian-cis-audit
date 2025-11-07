@@ -10716,6 +10716,356 @@ class MandatoryAccessControlAuditor(BaseAuditor):
         self.check_mac_enforcing()
 
 
+class ExtendedFilesystemAuditor(BaseAuditor):
+    """Extended Filesystem Security auditor for additional CIS filesystem checks"""
+
+    def check_tmp_noexec_configured(self):
+        """1.1.4.1 - Ensure /tmp mount has noexec option set"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.4.1",
+                    title="Ensure /tmp has noexec option",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /tmp ' in line and 'noexec' in line:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.4.1",
+                        title="Ensure /tmp has noexec option",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="/tmp is mounted with noexec option"
+                    ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.4.1",
+                title="Ensure /tmp has noexec option",
+                status=Status.FAIL,
+                severity=Severity.HIGH,
+                message="/tmp is not mounted with noexec option",
+                remediation="Add noexec to /tmp mount options in /etc/fstab"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.4.1",
+                title="Ensure /tmp has noexec option",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking /tmp noexec: {str(e)}"
+            ))
+
+    def check_var_tmp_bind_mount(self):
+        """1.1.4.2 - Ensure /var/tmp is bound to /tmp"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.4.2",
+                    title="Ensure /var/tmp is bound to /tmp",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /var/tmp ' in line and '/tmp' in line and 'bind' in line:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.4.2",
+                        title="Ensure /var/tmp is bound to /tmp",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/var/tmp is bound to /tmp"
+                    ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.4.2",
+                title="Ensure /var/tmp is bound to /tmp",
+                status=Status.WARNING,
+                severity=Severity.MEDIUM,
+                message="/var/tmp is not bound to /tmp",
+                details="Binding /var/tmp to /tmp ensures consistent security settings",
+                remediation="Add '/tmp /var/tmp none bind 0 0' to /etc/fstab"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.4.2",
+                title="Ensure /var/tmp is bound to /tmp",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking /var/tmp bind mount: {str(e)}"
+            ))
+
+    def check_dev_shm_noexec(self):
+        """1.1.5.1 - Ensure /dev/shm has noexec option"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.5.1",
+                    title="Ensure /dev/shm has noexec option",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /dev/shm ' in line and 'noexec' in line:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.5.1",
+                        title="Ensure /dev/shm has noexec option",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/dev/shm is mounted with noexec option"
+                    ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.1",
+                title="Ensure /dev/shm has noexec option",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="/dev/shm is not mounted with noexec option",
+                remediation="Add noexec to /dev/shm mount options in /etc/fstab"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.1",
+                title="Ensure /dev/shm has noexec option",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking /dev/shm noexec: {str(e)}"
+            ))
+
+    def check_dev_shm_nodev(self):
+        """1.1.5.2 - Ensure /dev/shm has nodev option"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.5.2",
+                    title="Ensure /dev/shm has nodev option",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /dev/shm ' in line and 'nodev' in line:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.5.2",
+                        title="Ensure /dev/shm has nodev option",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/dev/shm is mounted with nodev option"
+                    ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.2",
+                title="Ensure /dev/shm has nodev option",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="/dev/shm is not mounted with nodev option",
+                remediation="Add nodev to /dev/shm mount options in /etc/fstab"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.2",
+                title="Ensure /dev/shm has nodev option",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking /dev/shm nodev: {str(e)}"
+            ))
+
+    def check_dev_shm_nosuid(self):
+        """1.1.5.3 - Ensure /dev/shm has nosuid option"""
+        try:
+            mount_output = self.read_file('/proc/mounts')
+            if not mount_output:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.5.3",
+                    title="Ensure /dev/shm has nosuid option",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot read /proc/mounts"
+                ))
+                return
+
+            for line in mount_output.splitlines():
+                if ' /dev/shm ' in line and 'nosuid' in line:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.5.3",
+                        title="Ensure /dev/shm has nosuid option",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="/dev/shm is mounted with nosuid option"
+                    ))
+                    return
+
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.3",
+                title="Ensure /dev/shm has nosuid option",
+                status=Status.FAIL,
+                severity=Severity.MEDIUM,
+                message="/dev/shm is not mounted with nosuid option",
+                remediation="Add nosuid to /dev/shm mount options in /etc/fstab"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.5.3",
+                title="Ensure /dev/shm has nosuid option",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking /dev/shm nosuid: {str(e)}"
+            ))
+
+    def check_sticky_bit_world_writable(self):
+        """1.1.6 - Ensure sticky bit is set on world-writable directories"""
+        try:
+            # Check common world-writable directories
+            returncode, stdout, _ = self.run_command([
+                'find', '/', '-xdev', '-type', 'd',
+                '\\(', '-perm', '-0002', '-a', '!', '-perm', '-1000', '\\)',
+                '-ls', '2>/dev/null'
+            ], timeout=30)
+
+            if returncode == 0:
+                if stdout.strip():
+                    # Found directories without sticky bit
+                    dirs = stdout.strip().split('\n')[:10]  # Limit to first 10
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.6",
+                        title="Ensure sticky bit is set on world-writable directories",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message=f"Found {len(dirs)} world-writable directories without sticky bit",
+                        details="\n".join(f"  - {d}" for d in dirs),
+                        remediation="Set sticky bit: chmod +t <directory>"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.6",
+                        title="Ensure sticky bit is set on world-writable directories",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="All world-writable directories have sticky bit set"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.6",
+                    title="Ensure sticky bit is set on world-writable directories",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="Cannot search for world-writable directories (requires root)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.6",
+                title="Ensure sticky bit is set on world-writable directories",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking sticky bit: {str(e)}"
+            ))
+
+    def check_automounting_disabled(self):
+        """1.1.7 - Ensure autofs services are not in use"""
+        try:
+            returncode, stdout, _ = self.run_command(['systemctl', 'is-enabled', 'autofs'])
+
+            if stdout.strip() in ['disabled', 'masked'] or returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.7",
+                    title="Ensure autofs services are not in use",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="autofs service is not enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.7",
+                    title="Ensure autofs services are not in use",
+                    status=Status.FAIL,
+                    severity=Severity.LOW,
+                    message="autofs service is enabled",
+                    remediation="systemctl disable --now autofs"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.7",
+                title="Ensure autofs services are not in use",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking autofs: {str(e)}"
+            ))
+
+    def check_usb_storage_disabled(self):
+        """1.1.8 - Ensure USB storage is disabled"""
+        try:
+            # Check if usb-storage module is disabled
+            returncode, stdout, _ = self.run_command(['modprobe', '-n', '-v', 'usb-storage'])
+
+            if 'install /bin/true' in stdout or 'install /bin/false' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="1.1.8",
+                    title="Ensure USB storage is disabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="USB storage module is disabled"
+                ))
+            else:
+                # Check if module is currently loaded
+                returncode2, stdout2, _ = self.run_command(['lsmod'])
+                if 'usb_storage' in stdout2:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.8",
+                        title="Ensure USB storage is disabled",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message="USB storage module is loaded",
+                        details="usb_storage module is currently active",
+                        remediation="Add 'install usb-storage /bin/true' to /etc/modprobe.d/usb-storage.conf"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="1.1.8",
+                        title="Ensure USB storage is disabled",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="USB storage module is not disabled but not loaded",
+                        remediation="Add 'install usb-storage /bin/true' to /etc/modprobe.d/usb-storage.conf"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="1.1.8",
+                title="Ensure USB storage is disabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking USB storage: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all extended filesystem checks"""
+        self.check_tmp_noexec_configured()
+        self.check_var_tmp_bind_mount()
+        self.check_dev_shm_noexec()
+        self.check_dev_shm_nodev()
+        self.check_dev_shm_nosuid()
+        self.check_sticky_bit_world_writable()
+        self.check_automounting_disabled()
+        self.check_usb_storage_disabled()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -10748,6 +11098,10 @@ class DebianCISAudit:
         print("[*] Running Filesystem Checks...")
         filesystem_auditor = FileSystemAuditor(self.reporter)
         filesystem_auditor.run_all_checks()
+
+        print("[*] Running Extended Filesystem Checks...")
+        extended_fs_auditor = ExtendedFilesystemAuditor(self.reporter)
+        extended_fs_auditor.run_all_checks()
 
         print("[*] Running Kernel Module Checks...")
         kernel_module_auditor = KernelModuleAuditor(self.reporter)
