@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.2.0 (Phase 6 läuft) |
-| **Implementierte Checks** | 303 / 400+ |
-| **Coverage** | ~76% 🎉 |
+| **Version** | v3.3.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 318 / 400+ |
+| **Coverage** | ~79% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -36,13 +36,13 @@
 ### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Fortschritt:** 13 Checks implementiert
+**Fortschritt:** 28 Checks implementiert
 
 | Priority | Bereich | Checks | Status |
 |----------|---------|--------|--------|
 | 1 | Process Hardening (1.6.1.x) | 10 | ✅ v3.0.0 |
 | 4 | Mandatory Access Controls (1.6.2.x) | 3 | ✅ v3.2.0 |
-| 2 | Additional Audit Rules | ~20 | 📝 Geplant |
+| 2 | Additional Audit Rules (6.2.3.22-36) | 15 | ✅ v3.3.0 |
 | 3 | Extended Filesystem Checks | ~10 | 📝 Geplant |
 
 ---
@@ -103,7 +103,7 @@
 | 6.1.2.x - rsyslog | 6 | v2.0.0 |
 | 6.2.1.x - Auditd Installation | 2 | v1.0.0 |
 | 6.2.2.x - Audit Data Retention | 4 | v2.0.0 |
-| 6.2.3.x - Audit Rules | 21 | v2.0.0 |
+| 6.2.3.x - Audit Rules | 36 | v2.0.0 / v3.3.0 🆕 |
 | 6.2.4.x - Audit File Access | 9 | v2.0.0 |
 | 6.3.x - Integrity Checking | 3 | v2.0.0 |
 
@@ -131,6 +131,29 @@ Nächste Prioritäten für Phase 6:
 ## 📝 Release-Historie
 
 ### Aktuelle Releases (Phase 6 - In Arbeit)
+
+#### v3.3.0 (2025-11-07) - Phase 6 Priority 2 Complete 🎉
+**+15 Checks** | 318 Total | ~79% Coverage
+
+**Neue Checks:**
+- **6.2.3.22-36** Advanced Audit Rules (15 Checks)
+  - 6.2.3.22: PAM configuration monitoring
+  - 6.2.3.23: Security limits monitoring
+  - 6.2.3.24: Syslog configuration monitoring
+  - 6.2.3.25: Systemd configuration monitoring
+  - 6.2.3.26: Firewall configuration monitoring
+  - 6.2.3.27: iptables configuration monitoring
+  - 6.2.3.28: CA certificates monitoring
+  - 6.2.3.29: APT sources monitoring
+  - 6.2.3.30: Package management monitoring
+  - 6.2.3.31: Unsuccessful access attempts (EACCES)
+  - 6.2.3.32: Unsuccessful access attempts (EPERM)
+  - 6.2.3.33: Ownership changes monitoring
+  - 6.2.3.34: Permission changes monitoring
+  - 6.2.3.35: Extended attribute changes
+  - 6.2.3.36: Process creation events
+
+**Phase 6 Priority 2 Complete!** Extended audit monitoring for critical system configurations.
 
 #### v3.0.0 (2025-11-07) - Phase 6 Started 🚀
 **+10 Checks** | 292 Total | ~73% Coverage
@@ -291,4 +314,4 @@ Nächste Prioritäten für Phase 6:
 
 ---
 
-**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.2.0 (Additional Audit Rules)
+**Letztes Update:** 2025-11-07 | **Nächster Meilenstein:** v3.4.0 (Extended Filesystem Checks)

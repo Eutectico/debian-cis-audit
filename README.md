@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 303 Checks implementiert | 400+ Checks im Benchmark | Phase 6 Gestartet (~76% Coverage)
+**Aktueller Status:** 318 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~79% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 303 von 400+ Checks implementiert (~74%) | **Phase 6 Started 🚀**
+**Status:** 318 von 400+ Checks implementiert (~79%) | **Phase 6 läuft 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (292) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (318) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -315,7 +315,7 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **6.1.2.x** - rsyslog Configuration (6 Checks)
 - **6.2.1.x** - Auditd Installation & Service (2 Checks)
 - **6.2.2.x** - Audit Data Retention (4 Checks)
-- **6.2.3.x** - Audit Rules (21 Checks)
+- **6.2.3.x** - Audit Rules (36 Checks) ✨ ERWEITERT v3.3.0
 - **6.2.4.x** - Audit File Access (9 Checks)
 - **6.3.x** - Integrity Checking (3 Checks)
 - **7.1.x** - System File Permissions (12 Checks)
@@ -326,12 +326,15 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Phase 6 Gestartet mit v3.0.0!** 303 Checks implementiert - **73% Coverage erreicht!**
-> - **Neu in v3.0.0:** 10 Process Hardening & Kernel Security Checks (1.6.1.x)
->   - ASLR, prelink, ptrace_scope, dmesg_restrict, kptr_restrict
->   - BPF, userns_clone, perf_event, kexec, /dev/mem restrictions
-> - **Phase 6 Priorität 1 abgeschlossen!** Kritische Kernel-Sicherheit implementiert
-> - **Nächster Schritt:** Additional Audit Rules (~20 Checks)
+> 🚀 **Phase 6 läuft - v3.3.0!** 318 Checks implementiert - **79% Coverage erreicht!**
+> - **Neu in v3.3.0:** 15 Advanced Audit Rules (6.2.3.22 - 6.2.3.36)
+>   - PAM, syslog, systemd configuration monitoring
+>   - Firewall, iptables, CA certificates monitoring
+>   - APT sources, package management monitoring
+>   - Unsuccessful access attempts, ownership/permission changes
+>   - Extended attributes, process creation events
+> - **Phase 6 Priorität 2 abgeschlossen!** Erweiterte Audit-Überwachung implementiert
+> - **Nächster Schritt:** Extended Filesystem Checks (~10 Checks)
 
 ## 📊 Severity Levels
 

@@ -1281,6 +1281,142 @@ class AuditdAuditor(BaseAuditor):
             severity=Severity.MEDIUM
         )
 
+    # Advanced Audit Rules (Extended 6.2.3.x series)
+    def check_audit_pam_rules(self):
+        """6.2.3.22 - Ensure PAM configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.22",
+            title="Ensure PAM configuration changes are collected",
+            pattern="-w /etc/pam.d/ -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_security_limits_rules(self):
+        """6.2.3.23 - Ensure system security limits changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.23",
+            title="Ensure system security limits changes are collected",
+            pattern="-w /etc/security/limits.conf -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_syslog_rules(self):
+        """6.2.3.24 - Ensure syslog configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.24",
+            title="Ensure syslog configuration changes are collected",
+            pattern="-w /etc/rsyslog.conf -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_systemd_rules(self):
+        """6.2.3.25 - Ensure systemd configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.25",
+            title="Ensure systemd configuration changes are collected",
+            pattern="-w /etc/systemd/ -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_firewall_rules(self):
+        """6.2.3.26 - Ensure firewall configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.26",
+            title="Ensure firewall configuration changes are collected",
+            pattern="-w /etc/ufw/ -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_iptables_rules(self):
+        """6.2.3.27 - Ensure iptables configuration changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.27",
+            title="Ensure iptables configuration changes are collected",
+            pattern="-w /etc/iptables/ -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_ca_certificates_rules(self):
+        """6.2.3.28 - Ensure CA certificates changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.28",
+            title="Ensure CA certificates changes are collected",
+            pattern="-w /etc/ssl/certs/ -p wa",
+            severity=Severity.HIGH
+        )
+
+    def check_audit_apt_sources_rules(self):
+        """6.2.3.29 - Ensure APT sources changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.29",
+            title="Ensure APT sources changes are collected",
+            pattern="-w /etc/apt/sources.list -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_dpkg_rules(self):
+        """6.2.3.30 - Ensure package management changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.30",
+            title="Ensure package management changes are collected",
+            pattern="-w /var/lib/dpkg/ -p wa",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_unsuccessful_access_rules(self):
+        """6.2.3.31 - Ensure unsuccessful unauthorized file access attempts are collected (EACCES)"""
+        self._check_audit_rule(
+            check_id="6.2.3.31",
+            title="Ensure unsuccessful unauthorized file access attempts are collected (EACCES)",
+            pattern="-a always,exit -F arch=b64 -S open,openat,openat2 -F exit=-EACCES",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_unsuccessful_access_eperm_rules(self):
+        """6.2.3.32 - Ensure unsuccessful unauthorized file access attempts are collected (EPERM)"""
+        self._check_audit_rule(
+            check_id="6.2.3.32",
+            title="Ensure unsuccessful unauthorized file access attempts are collected (EPERM)",
+            pattern="-a always,exit -F arch=b64 -S open,openat,openat2 -F exit=-EPERM",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_chown_rules(self):
+        """6.2.3.33 - Ensure ownership changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.33",
+            title="Ensure ownership changes are collected",
+            pattern="-a always,exit -F arch=b64 -S chown,fchown,fchownat,lchown",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_chmod_rules(self):
+        """6.2.3.34 - Ensure permission changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.34",
+            title="Ensure permission changes are collected",
+            pattern="-a always,exit -F arch=b64 -S chmod,fchmod,fchmodat",
+            severity=Severity.MEDIUM
+        )
+
+    def check_audit_setxattr_rules(self):
+        """6.2.3.35 - Ensure extended attribute changes are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.35",
+            title="Ensure extended attribute changes are collected",
+            pattern="-a always,exit -F arch=b64 -S setxattr,lsetxattr,fsetxattr",
+            severity=Severity.LOW
+        )
+
+    def check_audit_process_creation_rules(self):
+        """6.2.3.36 - Ensure process creation events are collected"""
+        self._check_audit_rule(
+            check_id="6.2.3.36",
+            title="Ensure process creation events are collected",
+            pattern="-a always,exit -F arch=b64 -S execve",
+            severity=Severity.MEDIUM
+        )
+
     def run_all_checks(self):
         """Run all auditd checks"""
         self.check_auditd_installed()
@@ -1313,6 +1449,22 @@ class AuditdAuditor(BaseAuditor):
         self.check_audit_sysctl_rules()
         self.check_audit_localtime_rules()
         self.check_audit_ssh_rules()
+        # Advanced Audit Rules (Extended 6.2.3.x)
+        self.check_audit_pam_rules()
+        self.check_audit_security_limits_rules()
+        self.check_audit_syslog_rules()
+        self.check_audit_systemd_rules()
+        self.check_audit_firewall_rules()
+        self.check_audit_iptables_rules()
+        self.check_audit_ca_certificates_rules()
+        self.check_audit_apt_sources_rules()
+        self.check_audit_dpkg_rules()
+        self.check_audit_unsuccessful_access_rules()
+        self.check_audit_unsuccessful_access_eperm_rules()
+        self.check_audit_chown_rules()
+        self.check_audit_chmod_rules()
+        self.check_audit_setxattr_rules()
+        self.check_audit_process_creation_rules()
         # Audit File Access checks (6.2.4.x)
         self.check_audit_log_permissions()
         self.check_audit_log_directory_permissions()

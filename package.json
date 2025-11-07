@@ -1,0 +1,21 @@
+{
+  "name": "toltasks-103",
+  "version": "1.0.0",
+  "description": "[![CI](https://github.com/Eutectico/debian-cis-audit/workflows/CI/badge.svg)](https://github.com/Eutectico/debian-cis-audit/actions) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/) [![CIS Benchmark](https://img.shields.io/badge/CIS%20Benchmark-Debian%2012%20v1.1.0-green.svg)](https://www.cisecurity.org/benchmark/debian_linux)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eutectico/debian-cis-audit.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Eutectico/debian-cis-audit/issues"
+  },
+  "homepage": "https://github.com/Eutectico/debian-cis-audit#readme"
+}
