@@ -12942,6 +12942,637 @@ class ContainerVirtualizationAuditor(BaseAuditor):
             self.check_kvm_module_loaded()
 
 
+class CryptoSecurityAuditor(BaseAuditor):
+    """Cryptographic Security and TLS Configuration Checks (9.x)"""
+
+    def check_system_crypto_policy(self):
+        """9.1.1 - Ensure system-wide crypto policy is configured"""
+        try:
+            # Check for crypto-policies (primarily used in RHEL, but can be configured on Debian)
+            crypto_policy_file = '/etc/crypto-policies/config'
+
+            if self.file_exists(crypto_policy_file):
+                policy_config = self.read_file(crypto_policy_file)
+                if policy_config:
+                    policy = policy_config.strip()
+
+                    # Check for secure policies
+                    secure_policies = ['FUTURE', 'FIPS', 'DEFAULT']
+                    insecure_policies = ['LEGACY']
+
+                    if policy in insecure_policies:
+                        self.reporter.add_result(AuditResult(
+                            check_id="9.1.1",
+                            title="Ensure system-wide crypto policy is secure",
+                            status=Status.FAIL,
+                            severity=Severity.HIGH,
+                            message=f"Insecure crypto policy configured: {policy}",
+                            remediation="Set policy to DEFAULT, FUTURE, or FIPS in /etc/crypto-policies/config"
+                        ))
+                    elif policy in secure_policies:
+                        self.reporter.add_result(AuditResult(
+                            check_id="9.1.1",
+                            title="Ensure system-wide crypto policy is secure",
+                            status=Status.PASS,
+                            severity=Severity.HIGH,
+                            message=f"Secure crypto policy configured: {policy}"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="9.1.1",
+                            title="Ensure system-wide crypto policy is secure",
+                            status=Status.WARNING,
+                            severity=Severity.HIGH,
+                            message=f"Unknown crypto policy: {policy}"
+                        ))
+            else:
+                # On Debian, check for OpenSSL configuration
+                openssl_conf = self.read_file('/etc/ssl/openssl.cnf')
+                if openssl_conf:
+                    # Check for weak ciphers being explicitly disabled
+                    issues = []
+
+                    if 'MinProtocol' in openssl_conf:
+                        if 'TLSv1.2' in openssl_conf or 'TLSv1.3' in openssl_conf:
+                            pass  # Good
+                        else:
+                            issues.append("MinProtocol should be TLSv1.2 or higher")
+                    else:
+                        issues.append("MinProtocol not configured (should be TLSv1.2+)")
+
+                    if issues:
+                        self.reporter.add_result(AuditResult(
+                            check_id="9.1.1",
+                            title="Ensure system-wide crypto policy is secure",
+                            status=Status.WARNING,
+                            severity=Severity.HIGH,
+                            message="OpenSSL configuration has potential issues",
+                            details="\n".join(issues),
+                            remediation="Configure MinProtocol = TLSv1.2 in /etc/ssl/openssl.cnf"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="9.1.1",
+                            title="Ensure system-wide crypto policy is secure",
+                            status=Status.PASS,
+                            severity=Severity.HIGH,
+                            message="OpenSSL configuration appears secure"
+                        ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.1.1",
+                        title="Ensure system-wide crypto policy is secure",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message="No crypto policy configuration found",
+                        remediation="Configure system-wide crypto policies"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.1.1",
+                title="Ensure system-wide crypto policy is secure",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking crypto policy: {str(e)}"
+            ))
+
+    def check_openssl_version(self):
+        """9.1.2 - Ensure OpenSSL is up to date"""
+        try:
+            returncode, stdout, _ = self.run_command(['openssl', 'version'])
+
+            if returncode == 0:
+                version_info = stdout.strip()
+
+                # Check for known vulnerable versions (very basic check)
+                if 'OpenSSL 1.0' in version_info or 'OpenSSL 0.' in version_info:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.1.2",
+                        title="Ensure OpenSSL is up to date",
+                        status=Status.FAIL,
+                        severity=Severity.CRITICAL,
+                        message=f"Outdated OpenSSL version detected: {version_info}",
+                        remediation="Update OpenSSL to version 1.1.1 or higher (3.x recommended)"
+                    ))
+                elif 'OpenSSL 3.' in version_info:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.1.2",
+                        title="Ensure OpenSSL is up to date",
+                        status=Status.PASS,
+                        severity=Severity.CRITICAL,
+                        message=f"Modern OpenSSL version: {version_info}"
+                    ))
+                elif 'OpenSSL 1.1' in version_info:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.1.2",
+                        title="Ensure OpenSSL is up to date",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message=f"OpenSSL 1.1.x is EOL, consider upgrading: {version_info}",
+                        remediation="Upgrade to OpenSSL 3.x"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.1.2",
+                        title="Ensure OpenSSL is up to date",
+                        status=Status.PASS,
+                        severity=Severity.CRITICAL,
+                        message=f"OpenSSL version: {version_info}"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.1.2",
+                    title="Ensure OpenSSL is up to date",
+                    status=Status.ERROR,
+                    severity=Severity.CRITICAL,
+                    message="Cannot determine OpenSSL version"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.1.2",
+                title="Ensure OpenSSL is up to date",
+                status=Status.ERROR,
+                severity=Severity.CRITICAL,
+                message=f"Error checking OpenSSL version: {str(e)}"
+            ))
+
+    def check_weak_ciphers_disabled(self):
+        """9.2.1 - Ensure weak ciphers are disabled"""
+        try:
+            # Check OpenSSL ciphers
+            returncode, stdout, _ = self.run_command(['openssl', 'ciphers', '-v', 'ALL'])
+
+            if returncode == 0:
+                weak_ciphers = []
+                weak_patterns = ['DES', 'RC4', 'MD5', 'NULL', 'EXPORT', 'anon']
+
+                for line in stdout.splitlines():
+                    for pattern in weak_patterns:
+                        if pattern in line.upper():
+                            weak_ciphers.append(line.strip())
+                            break
+
+                if weak_ciphers:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.2.1",
+                        title="Ensure weak ciphers are disabled",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message=f"Weak ciphers available: {len(weak_ciphers)} found",
+                        details=f"Examples: {', '.join(weak_ciphers[:5])}",
+                        remediation="Configure CipherString in /etc/ssl/openssl.cnf to exclude weak ciphers"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.2.1",
+                        title="Ensure weak ciphers are disabled",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="No obviously weak ciphers detected"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.2.1",
+                    title="Ensure weak ciphers are disabled",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot enumerate available ciphers"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.2.1",
+                title="Ensure weak ciphers are disabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking cipher configuration: {str(e)}"
+            ))
+
+    def check_tls_protocols(self):
+        """9.2.2 - Ensure only strong TLS protocols are enabled"""
+        try:
+            openssl_conf = self.read_file('/etc/ssl/openssl.cnf')
+
+            if not openssl_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.2.2",
+                    title="Ensure only strong TLS protocols are enabled",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="OpenSSL configuration not found"
+                ))
+                return
+
+            issues = []
+
+            # Check MinProtocol
+            min_protocol_match = re.search(r'MinProtocol\s*=\s*(\S+)', openssl_conf, re.IGNORECASE)
+            if min_protocol_match:
+                min_protocol = min_protocol_match.group(1)
+                if min_protocol in ['TLSv1', 'TLSv1.1', 'SSLv2', 'SSLv3']:
+                    issues.append(f"MinProtocol is set to insecure protocol: {min_protocol}")
+                elif min_protocol in ['TLSv1.2', 'TLSv1.3']:
+                    pass  # Good
+            else:
+                issues.append("MinProtocol is not explicitly set (should be TLSv1.2 or TLSv1.3)")
+
+            # Check MaxProtocol
+            max_protocol_match = re.search(r'MaxProtocol\s*=\s*(\S+)', openssl_conf, re.IGNORECASE)
+            if max_protocol_match:
+                max_protocol = max_protocol_match.group(1)
+                if max_protocol in ['TLSv1', 'TLSv1.1', 'SSLv2', 'SSLv3']:
+                    issues.append(f"MaxProtocol is set to insecure protocol: {max_protocol}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.2.2",
+                    title="Ensure only strong TLS protocols are enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Weak TLS protocols may be enabled",
+                    details="\n".join(issues),
+                    remediation="Set MinProtocol = TLSv1.2 in /etc/ssl/openssl.cnf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.2.2",
+                    title="Ensure only strong TLS protocols are enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="TLS protocol configuration is secure"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.2.2",
+                title="Ensure only strong TLS protocols are enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking TLS protocol configuration: {str(e)}"
+            ))
+
+    def check_certificate_expiration(self):
+        """9.3.1 - Check for expired or soon-to-expire certificates"""
+        try:
+            # Check common certificate locations
+            cert_locations = [
+                '/etc/ssl/certs',
+                '/etc/pki/tls/certs',
+                '/usr/local/share/ca-certificates'
+            ]
+
+            expiring_soon = []
+            expired = []
+
+            for cert_dir in cert_locations:
+                if not self.file_exists(cert_dir):
+                    continue
+
+                # Find .crt and .pem files
+                returncode, stdout, _ = self.run_command(['find', cert_dir, '-name', '*.crt', '-o', '-name', '*.pem'])
+
+                if returncode == 0:
+                    cert_files = stdout.strip().split('\n')
+
+                    for cert_file in cert_files[:10]:  # Limit to 10 certs to avoid timeout
+                        if not cert_file:
+                            continue
+
+                        # Check expiration
+                        ret, out, _ = self.run_command(['openssl', 'x509', '-in', cert_file, '-noout', '-enddate'], timeout=5)
+
+                        if ret == 0 and 'notAfter' in out:
+                            # Parse date (example: notAfter=Dec 31 23:59:59 2024 GMT)
+                            from datetime import datetime, timedelta
+                            try:
+                                date_str = out.split('=')[1].strip()
+                                end_date = datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
+                                now = datetime.now()
+
+                                if end_date < now:
+                                    expired.append(cert_file)
+                                elif (end_date - now).days < 30:
+                                    expiring_soon.append(f"{cert_file} (expires in {(end_date - now).days} days)")
+                            except:
+                                pass
+
+            if expired:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.1",
+                    title="Check for expired certificates",
+                    status=Status.FAIL,
+                    severity=Severity.CRITICAL,
+                    message=f"Expired certificates found: {len(expired)}",
+                    details="\n".join(expired[:5]),
+                    remediation="Remove or renew expired certificates"
+                ))
+            elif expiring_soon:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.1",
+                    title="Check for expired certificates",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message=f"Certificates expiring soon: {len(expiring_soon)}",
+                    details="\n".join(expiring_soon[:5]),
+                    remediation="Renew certificates before expiration"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.1",
+                    title="Check for expired certificates",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="No expired or soon-to-expire certificates found"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.3.1",
+                title="Check for expired certificates",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking certificate expiration: {str(e)}"
+            ))
+
+    def check_ca_certificates_updated(self):
+        """9.3.2 - Ensure CA certificates are updated"""
+        try:
+            # Check when ca-certificates was last updated
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'ca-certificates'])
+
+            if returncode == 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.2",
+                    title="Ensure CA certificates package is installed",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="ca-certificates package is installed"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.2",
+                    title="Ensure CA certificates package is installed",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="ca-certificates package is not installed",
+                    remediation="apt-get install ca-certificates"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.3.2",
+                title="Ensure CA certificates package is installed",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking CA certificates: {str(e)}"
+            ))
+
+    def check_certificate_permissions(self):
+        """9.3.3 - Ensure certificate files have appropriate permissions"""
+        try:
+            cert_dirs = ['/etc/ssl/private', '/etc/pki/tls/private']
+            issues = []
+
+            for cert_dir in cert_dirs:
+                if not self.file_exists(cert_dir):
+                    continue
+
+                # Check directory permissions
+                stat_info = self.get_file_stat(cert_dir)
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+
+                    # Private key directories should be 700 or more restrictive
+                    if mode & 0o077:
+                        issues.append(f"{cert_dir} has overly permissive permissions: {oct(mode)}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.3",
+                    title="Ensure certificate files have appropriate permissions",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Private key directories have insecure permissions",
+                    details="\n".join(issues),
+                    remediation="chmod 700 /etc/ssl/private"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.3.3",
+                    title="Ensure certificate files have appropriate permissions",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Certificate directory permissions are secure"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.3.3",
+                title="Ensure certificate files have appropriate permissions",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking certificate permissions: {str(e)}"
+            ))
+
+    def check_ssh_strong_ciphers(self):
+        """9.4.1 - Ensure SSH uses strong ciphers (complement to 5.1.x)"""
+        try:
+            sshd_config = self.read_file('/etc/ssh/sshd_config')
+
+            if not sshd_config:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.1",
+                    title="Ensure SSH uses strong ciphers",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot read SSH configuration"
+                ))
+                return
+
+            # Check for explicit cipher configuration
+            cipher_match = re.search(r'^\s*Ciphers\s+(.+)$', sshd_config, re.MULTILINE | re.IGNORECASE)
+
+            weak_ciphers = ['3des', 'des', 'rc4', 'arcfour']
+
+            if cipher_match:
+                configured_ciphers = cipher_match.group(1).lower()
+
+                found_weak = [weak for weak in weak_ciphers if weak in configured_ciphers]
+
+                if found_weak:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.1",
+                        title="Ensure SSH uses strong ciphers",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message=f"Weak SSH ciphers configured: {', '.join(found_weak)}",
+                        remediation="Configure strong ciphers in /etc/ssh/sshd_config"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.1",
+                        title="Ensure SSH uses strong ciphers",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="SSH ciphers are configured securely"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.1",
+                    title="Ensure SSH uses strong ciphers",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="SSH ciphers not explicitly configured (using defaults)",
+                    details="Consider explicitly configuring strong ciphers",
+                    remediation="Add 'Ciphers' directive in /etc/ssh/sshd_config"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.4.1",
+                title="Ensure SSH uses strong ciphers",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking SSH cipher configuration: {str(e)}"
+            ))
+
+    def check_ssh_strong_macs(self):
+        """9.4.2 - Ensure SSH uses strong MACs"""
+        try:
+            sshd_config = self.read_file('/etc/ssh/sshd_config')
+
+            if not sshd_config:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.2",
+                    title="Ensure SSH uses strong MACs",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot read SSH configuration"
+                ))
+                return
+
+            # Check for explicit MAC configuration
+            mac_match = re.search(r'^\s*MACs\s+(.+)$', sshd_config, re.MULTILINE | re.IGNORECASE)
+
+            weak_macs = ['md5', 'sha1-96']
+
+            if mac_match:
+                configured_macs = mac_match.group(1).lower()
+
+                found_weak = [weak for weak in weak_macs if weak in configured_macs]
+
+                if found_weak:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.2",
+                        title="Ensure SSH uses strong MACs",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message=f"Weak SSH MACs configured: {', '.join(found_weak)}",
+                        remediation="Configure strong MACs in /etc/ssh/sshd_config"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.2",
+                        title="Ensure SSH uses strong MACs",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="SSH MACs are configured securely"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.2",
+                    title="Ensure SSH uses strong MACs",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="SSH MACs not explicitly configured (using defaults)",
+                    details="Consider explicitly configuring strong MACs",
+                    remediation="Add 'MACs' directive in /etc/ssh/sshd_config"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.4.2",
+                title="Ensure SSH uses strong MACs",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking SSH MAC configuration: {str(e)}"
+            ))
+
+    def check_ssh_strong_kex(self):
+        """9.4.3 - Ensure SSH uses strong key exchange algorithms"""
+        try:
+            sshd_config = self.read_file('/etc/ssh/sshd_config')
+
+            if not sshd_config:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.3",
+                    title="Ensure SSH uses strong key exchange algorithms",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot read SSH configuration"
+                ))
+                return
+
+            # Check for explicit KEX configuration
+            kex_match = re.search(r'^\s*KexAlgorithms\s+(.+)$', sshd_config, re.MULTILINE | re.IGNORECASE)
+
+            weak_kex = ['diffie-hellman-group1', 'diffie-hellman-group14-sha1']
+
+            if kex_match:
+                configured_kex = kex_match.group(1).lower()
+
+                found_weak = [weak for weak in weak_kex if weak in configured_kex]
+
+                if found_weak:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.3",
+                        title="Ensure SSH uses strong key exchange algorithms",
+                        status=Status.FAIL,
+                        severity=Severity.HIGH,
+                        message=f"Weak SSH key exchange algorithms: {', '.join(found_weak)}",
+                        remediation="Configure strong KEX algorithms in /etc/ssh/sshd_config"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="9.4.3",
+                        title="Ensure SSH uses strong key exchange algorithms",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="SSH key exchange algorithms are configured securely"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="9.4.3",
+                    title="Ensure SSH uses strong key exchange algorithms",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="SSH KEX algorithms not explicitly configured (using defaults)",
+                    details="Consider explicitly configuring strong KEX algorithms",
+                    remediation="Add 'KexAlgorithms' directive in /etc/ssh/sshd_config"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="9.4.3",
+                title="Ensure SSH uses strong key exchange algorithms",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking SSH KEX configuration: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all crypto and TLS security checks"""
+        # System-wide crypto policies (9.1.x)
+        self.check_system_crypto_policy()
+        self.check_openssl_version()
+
+        # TLS/SSL configuration (9.2.x)
+        self.check_weak_ciphers_disabled()
+        self.check_tls_protocols()
+
+        # Certificate management (9.3.x)
+        self.check_certificate_expiration()
+        self.check_ca_certificates_updated()
+        self.check_certificate_permissions()
+
+        # SSH crypto configuration (9.4.x)
+        self.check_ssh_strong_ciphers()
+        self.check_ssh_strong_macs()
+        self.check_ssh_strong_kex()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -13058,6 +13689,10 @@ class DebianCISAudit:
         print("[*] Running Container and Virtualization Security Checks...")
         container_virt_auditor = ContainerVirtualizationAuditor(self.reporter)
         container_virt_auditor.run_all_checks()
+
+        print("[*] Running Crypto and TLS Security Checks...")
+        crypto_auditor = CryptoSecurityAuditor(self.reporter)
+        crypto_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)

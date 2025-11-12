@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.6.0 (Phase 6 läuft) |
-| **Implementierte Checks** | 355 / 400+ |
-| **Coverage** | ~89% 🎉 |
+| **Version** | v3.7.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 365 / 400+ |
+| **Coverage** | ~91% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -36,7 +36,7 @@
 ### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Fortschritt:** 50 Checks implementiert
+**Fortschritt:** 60 Checks implementiert
 
 | Priority | Bereich | Checks | Status |
 |----------|---------|--------|--------|
