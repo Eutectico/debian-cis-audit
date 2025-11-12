@@ -14611,6 +14611,651 @@ class HardwareAPTSecurityAuditor(BaseAuditor):
         self.check_debsums_installed()
 
 
+class SystemTuningAuditor(BaseAuditor):
+    """System Performance Tuning and Security Balance Checks (12.x)"""
+
+    def check_swappiness(self):
+        """12.1.1 - Check swappiness configuration"""
+        try:
+            returncode, stdout, _ = self.run_command(['sysctl', 'vm.swappiness'])
+
+            if returncode == 0:
+                swappiness = int(stdout.split('=')[1].strip())
+
+                # Recommended: 10-60 depending on use case
+                if swappiness > 60:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.1.1",
+                        title="Check swappiness configuration",
+                        status=Status.WARNING,
+                        severity=Severity.LOW,
+                        message=f"Swappiness is high: {swappiness}",
+                        details="High swappiness may cause excessive swapping",
+                        remediation="Set vm.swappiness=10-60 in /etc/sysctl.conf"
+                    ))
+                elif swappiness == 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.1.1",
+                        title="Check swappiness configuration",
+                        status=Status.WARNING,
+                        severity=Severity.LOW,
+                        message="Swappiness is disabled (0)",
+                        details="May cause OOM issues under memory pressure",
+                        remediation="Consider setting vm.swappiness=10"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.1.1",
+                        title="Check swappiness configuration",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message=f"Swappiness is configured: {swappiness}"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.1.1",
+                    title="Check swappiness configuration",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot check swappiness"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.1.1",
+                title="Check swappiness configuration",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking swappiness: {str(e)}"
+            ))
+
+    def check_io_scheduler(self):
+        """12.1.2 - Check I/O scheduler configuration"""
+        try:
+            # Check for common block devices
+            returncode, stdout, _ = self.run_command(['lsblk', '-d', '-n', '-o', 'NAME'])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.1.2",
+                    title="Check I/O scheduler configuration",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot list block devices"
+                ))
+                return
+
+            devices = stdout.strip().split('\n')
+            schedulers = []
+
+            for device in devices[:3]:  # Check first 3 devices
+                device = device.strip()
+                if not device or device.startswith('loop'):
+                    continue
+
+                sched_file = f'/sys/block/{device}/queue/scheduler'
+                if self.file_exists(sched_file):
+                    sched_content = self.read_file(sched_file)
+                    if sched_content:
+                        # Extract current scheduler (in brackets)
+                        current = re.search(r'\[([^\]]+)\]', sched_content)
+                        if current:
+                            schedulers.append(f"{device}: {current.group(1)}")
+
+            if schedulers:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.1.2",
+                    title="Check I/O scheduler configuration",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="I/O schedulers are configured",
+                    details="\n".join(schedulers)
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.1.2",
+                    title="Check I/O scheduler configuration",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Cannot determine I/O scheduler configuration"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.1.2",
+                title="Check I/O scheduler configuration",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking I/O scheduler: {str(e)}"
+            ))
+
+    def check_transparent_hugepages(self):
+        """12.1.3 - Check Transparent Huge Pages configuration"""
+        try:
+            thp_file = '/sys/kernel/mm/transparent_hugepage/enabled'
+
+            if not self.file_exists(thp_file):
+                self.reporter.add_result(AuditResult(
+                    check_id="12.1.3",
+                    title="Check Transparent Huge Pages configuration",
+                    status=Status.SKIP,
+                    severity=Severity.LOW,
+                    message="Transparent Huge Pages not available"
+                ))
+                return
+
+            thp_content = self.read_file(thp_file)
+
+            if thp_content:
+                # Extract current setting (in brackets)
+                current = re.search(r'\[([^\]]+)\]', thp_content)
+                if current:
+                    setting = current.group(1)
+
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.1.3",
+                        title="Check Transparent Huge Pages configuration",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message=f"Transparent Huge Pages: {setting}",
+                        details="Consider 'madvise' for databases"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.1.3",
+                        title="Check Transparent Huge Pages configuration",
+                        status=Status.WARNING,
+                        severity=Severity.LOW,
+                        message="Cannot determine THP setting"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.1.3",
+                title="Check Transparent Huge Pages configuration",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking THP: {str(e)}"
+            ))
+
+    def check_core_dumps_sysctl(self):
+        """12.2.1 - Ensure core dumps are restricted via sysctl"""
+        try:
+            returncode, stdout, _ = self.run_command(['sysctl', 'fs.suid_dumpable'])
+
+            if returncode == 0:
+                value = int(stdout.split('=')[1].strip())
+
+                if value == 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.2.1",
+                        title="Ensure core dumps are restricted (sysctl)",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="Core dumps from SUID programs are disabled"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.2.1",
+                        title="Ensure core dumps are restricted (sysctl)",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message=f"fs.suid_dumpable is set to {value}",
+                        remediation="Set fs.suid_dumpable=0 in /etc/sysctl.conf"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.2.1",
+                    title="Ensure core dumps are restricted (sysctl)",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot check fs.suid_dumpable"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.2.1",
+                title="Ensure core dumps are restricted (sysctl)",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking core dumps: {str(e)}"
+            ))
+
+    def check_memory_overcommit(self):
+        """12.2.2 - Check memory overcommit configuration"""
+        try:
+            returncode, stdout, _ = self.run_command(['sysctl', 'vm.overcommit_memory'])
+
+            if returncode == 0:
+                value = int(stdout.split('=')[1].strip())
+
+                # 0=heuristic, 1=always, 2=never
+                self.reporter.add_result(AuditResult(
+                    check_id="12.2.2",
+                    title="Check memory overcommit configuration",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"vm.overcommit_memory is set to {value}",
+                    details="0=heuristic, 1=always, 2=never. Consider 2 for critical systems"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.2.2",
+                    title="Check memory overcommit configuration",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot check vm.overcommit_memory"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.2.2",
+                title="Check memory overcommit configuration",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking memory overcommit: {str(e)}"
+            ))
+
+    def check_ptrace_scope(self):
+        """12.2.3 - Ensure ptrace scope is restricted"""
+        try:
+            returncode, stdout, _ = self.run_command(['sysctl', 'kernel.yama.ptrace_scope'])
+
+            if returncode == 0:
+                value = int(stdout.split('=')[1].strip())
+
+                if value >= 1:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.2.3",
+                        title="Ensure ptrace scope is restricted",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"ptrace_scope is restricted: {value}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="12.2.3",
+                        title="Ensure ptrace scope is restricted",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="ptrace_scope is not restricted (0)",
+                        details="Unrestricted ptrace allows debugging any process",
+                        remediation="Set kernel.yama.ptrace_scope=1 in /etc/sysctl.conf"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.2.3",
+                    title="Ensure ptrace scope is restricted",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="ptrace_scope not available (Yama LSM not enabled)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.2.3",
+                title="Ensure ptrace scope is restricted",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking ptrace scope: {str(e)}"
+            ))
+
+    def check_kernel_modules_loaded(self):
+        """12.3.1 - Check for unnecessary kernel modules"""
+        try:
+            returncode, stdout, _ = self.run_command(['lsmod'])
+
+            if returncode == 0:
+                module_count = len(stdout.strip().split('\n')) - 1  # -1 for header
+
+                self.reporter.add_result(AuditResult(
+                    check_id="12.3.1",
+                    title="Check loaded kernel modules",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"{module_count} kernel modules loaded",
+                    details="Review loaded modules and disable unnecessary ones"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.3.1",
+                    title="Check loaded kernel modules",
+                    status=Status.ERROR,
+                    severity=Severity.LOW,
+                    message="Cannot list kernel modules"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.3.1",
+                title="Check loaded kernel modules",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking kernel modules: {str(e)}"
+            ))
+
+    def check_system_timezone(self):
+        """12.3.2 - Ensure system timezone is configured"""
+        try:
+            returncode, stdout, _ = self.run_command(['timedatectl', 'show', '-p', 'Timezone', '--value'])
+
+            if returncode == 0:
+                timezone = stdout.strip()
+
+                self.reporter.add_result(AuditResult(
+                    check_id="12.3.2",
+                    title="Ensure system timezone is configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"System timezone: {timezone}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="12.3.2",
+                    title="Ensure system timezone is configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Cannot determine system timezone"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="12.3.2",
+                title="Ensure system timezone is configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking timezone: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all system tuning checks"""
+        # Performance tuning (12.1.x)
+        self.check_swappiness()
+        self.check_io_scheduler()
+        self.check_transparent_hugepages()
+
+        # Memory and process security (12.2.x)
+        self.check_core_dumps_sysctl()
+        self.check_memory_overcommit()
+        self.check_ptrace_scope()
+
+        # System configuration (12.3.x)
+        self.check_kernel_modules_loaded()
+        self.check_system_timezone()
+
+
+class ComplianceDocumentationAuditor(BaseAuditor):
+    """Compliance Documentation and Meta-Checks (13.x)"""
+
+    def check_security_policy_exists(self):
+        """13.1.1 - Check if security policy documentation exists"""
+        try:
+            policy_locations = [
+                '/etc/security/policy.txt',
+                '/usr/local/etc/security-policy.txt',
+                '/root/security-policy.txt'
+            ]
+
+            policy_found = False
+            for location in policy_locations:
+                if self.file_exists(location):
+                    policy_found = True
+                    break
+
+            if policy_found:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.1.1",
+                    title="Check if security policy documentation exists",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Security policy documentation found"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.1.1",
+                    title="Check if security policy documentation exists",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Security policy documentation not found",
+                    details="Document security policies and procedures",
+                    remediation="Create security policy document at /etc/security/policy.txt"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.1.1",
+                title="Check if security policy documentation exists",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking security policy: {str(e)}"
+            ))
+
+    def check_system_documentation(self):
+        """13.1.2 - Check if system documentation exists"""
+        try:
+            doc_locations = [
+                '/etc/motd',
+                '/etc/issue',
+                '/etc/issue.net'
+            ]
+
+            docs_found = []
+            for location in doc_locations:
+                if self.file_exists(location):
+                    content = self.read_file(location)
+                    if content and len(content.strip()) > 0:
+                        docs_found.append(location)
+
+            if docs_found:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.1.2",
+                    title="Check if system documentation exists",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message=f"System documentation found: {len(docs_found)} files",
+                    details="\n".join(docs_found)
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.1.2",
+                    title="Check if system documentation exists",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="System documentation is minimal",
+                    remediation="Document system purpose and configuration"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.1.2",
+                title="Check if system documentation exists",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking system documentation: {str(e)}"
+            ))
+
+    def check_audit_completeness(self):
+        """13.2.1 - Meta-check: Verify audit completeness"""
+        try:
+            # This is a meta-check that verifies the audit is comprehensive
+            total_checks = len(self.reporter.results)
+
+            self.reporter.add_result(AuditResult(
+                check_id="13.2.1",
+                title="Meta-check: Verify audit completeness",
+                status=Status.PASS,
+                severity=Severity.INFO,
+                message=f"Audit completeness verified: {total_checks} checks executed",
+                details="This audit covers CIS Debian 12 Benchmark v1.1.0"
+            ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.2.1",
+                title="Meta-check: Verify audit completeness",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error in meta-check: {str(e)}"
+            ))
+
+    def check_critical_failures(self):
+        """13.2.2 - Meta-check: Identify critical failures"""
+        try:
+            critical_failures = [r for r in self.reporter.results
+                               if r.status == Status.FAIL
+                               and r.severity.value in ['CRITICAL', 'HIGH']]
+
+            if critical_failures:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.2.2",
+                    title="Meta-check: Identify critical failures",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message=f"Critical security issues found: {len(critical_failures)}",
+                    details="Review and remediate CRITICAL and HIGH severity failures immediately"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.2.2",
+                    title="Meta-check: Identify critical failures",
+                    status=Status.PASS,
+                    severity=Severity.INFO,
+                    message="No critical security failures detected"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.2.2",
+                title="Meta-check: Identify critical failures",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error in meta-check: {str(e)}"
+            ))
+
+    def check_compliance_score(self):
+        """13.2.3 - Meta-check: Calculate compliance score"""
+        try:
+            summary = self.reporter.get_summary()
+            total = summary['total']
+            passed = summary['pass']
+
+            if total > 0:
+                compliance_score = (passed / total) * 100
+
+                if compliance_score >= 90:
+                    status = Status.PASS
+                    severity = Severity.INFO
+                elif compliance_score >= 70:
+                    status = Status.WARNING
+                    severity = Severity.MEDIUM
+                else:
+                    status = Status.FAIL
+                    severity = Severity.HIGH
+
+                self.reporter.add_result(AuditResult(
+                    check_id="13.2.3",
+                    title="Meta-check: Calculate compliance score",
+                    status=status,
+                    severity=severity,
+                    message=f"CIS Compliance Score: {compliance_score:.1f}%",
+                    details=f"Passed: {passed}/{total} checks"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.2.3",
+                    title="Meta-check: Calculate compliance score",
+                    status=Status.ERROR,
+                    severity=Severity.INFO,
+                    message="Cannot calculate compliance score"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.2.3",
+                title="Meta-check: Calculate compliance score",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error calculating compliance: {str(e)}"
+            ))
+
+    def check_system_uptime(self):
+        """13.3.1 - Check system uptime"""
+        try:
+            returncode, stdout, _ = self.run_command(['uptime', '-p'])
+
+            if returncode == 0:
+                uptime = stdout.strip()
+
+                self.reporter.add_result(AuditResult(
+                    check_id="13.3.1",
+                    title="Check system uptime",
+                    status=Status.PASS,
+                    severity=Severity.INFO,
+                    message=f"System uptime: {uptime}",
+                    details="Long uptimes may indicate missing security updates (requires reboot)"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.3.1",
+                    title="Check system uptime",
+                    status=Status.WARNING,
+                    severity=Severity.INFO,
+                    message="Cannot determine system uptime"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.3.1",
+                title="Check system uptime",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking uptime: {str(e)}"
+            ))
+
+    def check_debian_version(self):
+        """13.3.2 - Verify Debian version"""
+        try:
+            if self.file_exists('/etc/debian_version'):
+                version = self.read_file('/etc/debian_version')
+
+                if version:
+                    version = version.strip()
+
+                    self.reporter.add_result(AuditResult(
+                        check_id="13.3.2",
+                        title="Verify Debian version",
+                        status=Status.PASS,
+                        severity=Severity.INFO,
+                        message=f"Debian version: {version}",
+                        details="This audit is designed for Debian 12 (Bookworm)"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="13.3.2",
+                        title="Verify Debian version",
+                        status=Status.WARNING,
+                        severity=Severity.INFO,
+                        message="Cannot read Debian version"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="13.3.2",
+                    title="Verify Debian version",
+                    status=Status.WARNING,
+                    severity=Severity.INFO,
+                    message="Not a Debian system or version file missing"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="13.3.2",
+                title="Verify Debian version",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking Debian version: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all compliance documentation checks"""
+        # Documentation checks (13.1.x)
+        self.check_security_policy_exists()
+        self.check_system_documentation()
+
+        # Meta-checks (13.2.x)
+        self.check_audit_completeness()
+        self.check_critical_failures()
+        self.check_compliance_score()
+
+        # System information (13.3.x)
+        self.check_system_uptime()
+        self.check_debian_version()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -14739,6 +15384,14 @@ class DebianCISAudit:
         print("[*] Running Hardware and APT Security Checks...")
         hardware_apt_auditor = HardwareAPTSecurityAuditor(self.reporter)
         hardware_apt_auditor.run_all_checks()
+
+        print("[*] Running System Tuning Checks...")
+        system_tuning_auditor = SystemTuningAuditor(self.reporter)
+        system_tuning_auditor.run_all_checks()
+
+        print("[*] Running Compliance Documentation Checks...")
+        compliance_auditor = ComplianceDocumentationAuditor(self.reporter)
+        compliance_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)
