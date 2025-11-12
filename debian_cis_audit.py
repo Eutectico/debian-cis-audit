@@ -13573,6 +13573,514 @@ class CryptoSecurityAuditor(BaseAuditor):
         self.check_ssh_strong_kex()
 
 
+class ExtendedLogMonitoringAuditor(BaseAuditor):
+    """Extended Logging and Monitoring Configuration Checks (10.x)"""
+
+    def check_syslog_ng_installed(self):
+        """10.1.1 - Check if syslog-ng is installed (alternative to rsyslog)"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'syslog-ng'])
+            syslog_ng_installed = returncode == 0 and 'ii' in stdout
+
+            if syslog_ng_installed:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.1.1",
+                    title="Check if syslog-ng is installed",
+                    status=Status.PASS,
+                    severity=Severity.INFO,
+                    message="syslog-ng is installed - advanced syslog checks will run"
+                ))
+                return True
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.1.1",
+                    title="Check if syslog-ng is installed",
+                    status=Status.SKIP,
+                    severity=Severity.INFO,
+                    message="syslog-ng is not installed (rsyslog may be in use)"
+                ))
+                return False
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.1.1",
+                title="Check if syslog-ng is installed",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking syslog-ng installation: {str(e)}"
+            ))
+            return False
+
+    def check_syslog_ng_config(self):
+        """10.1.2 - Ensure syslog-ng configuration is secure"""
+        try:
+            syslog_ng_conf = self.read_file('/etc/syslog-ng/syslog-ng.conf')
+
+            if not syslog_ng_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.1.2",
+                    title="Ensure syslog-ng configuration exists",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="syslog-ng configuration not found",
+                    remediation="Configure /etc/syslog-ng/syslog-ng.conf"
+                ))
+                return
+
+            issues = []
+
+            # Check for remote log destination
+            if 'destination' not in syslog_ng_conf.lower():
+                issues.append("No log destinations configured")
+
+            # Check for TLS encryption for remote logging
+            if 'tls' in syslog_ng_conf.lower():
+                pass  # Good - TLS is mentioned
+            elif 'destination' in syslog_ng_conf.lower() and 'tcp' in syslog_ng_conf.lower():
+                issues.append("TCP destinations without TLS encryption detected")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.1.2",
+                    title="Ensure syslog-ng configuration is secure",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="syslog-ng configuration has potential issues",
+                    details="\n".join(issues),
+                    remediation="Review and secure /etc/syslog-ng/syslog-ng.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.1.2",
+                    title="Ensure syslog-ng configuration is secure",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="syslog-ng configuration appears secure"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.1.2",
+                title="Ensure syslog-ng configuration is secure",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking syslog-ng configuration: {str(e)}"
+            ))
+
+    def check_journal_persistence(self):
+        """10.2.1 - Ensure systemd journal persistence is configured"""
+        try:
+            # Check if /var/log/journal exists (persistent storage)
+            if self.file_exists('/var/log/journal'):
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.1",
+                    title="Ensure systemd journal persistence is enabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Journal persistence is enabled (/var/log/journal exists)"
+                ))
+            else:
+                # Check journald.conf for Storage setting
+                journald_conf = self.read_file('/etc/systemd/journald.conf')
+
+                if journald_conf and 'Storage=persistent' in journald_conf:
+                    self.reporter.add_result(AuditResult(
+                        check_id="10.2.1",
+                        title="Ensure systemd journal persistence is enabled",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="Storage=persistent is set but /var/log/journal does not exist",
+                        remediation="Create /var/log/journal directory or restart systemd-journald"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="10.2.1",
+                        title="Ensure systemd journal persistence is enabled",
+                        status=Status.FAIL,
+                        severity=Severity.MEDIUM,
+                        message="Journal persistence is not configured",
+                        details="Logs may be lost on reboot",
+                        remediation="Set Storage=persistent in /etc/systemd/journald.conf and create /var/log/journal"
+                    ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.2.1",
+                title="Ensure systemd journal persistence is enabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking journal persistence: {str(e)}"
+            ))
+
+    def check_journal_max_size(self):
+        """10.2.2 - Ensure systemd journal size limits are configured"""
+        try:
+            journald_conf = self.read_file('/etc/systemd/journald.conf')
+
+            if not journald_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.2",
+                    title="Ensure journal size limits are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="journald configuration not found"
+                ))
+                return
+
+            issues = []
+
+            # Check SystemMaxUse
+            if 'SystemMaxUse=' not in journald_conf:
+                issues.append("SystemMaxUse not configured (unlimited journal size)")
+
+            # Check RuntimeMaxUse
+            if 'RuntimeMaxUse=' not in journald_conf:
+                issues.append("RuntimeMaxUse not configured")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.2",
+                    title="Ensure journal size limits are configured",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="Journal size limits not fully configured",
+                    details="\n".join(issues),
+                    remediation="Configure SystemMaxUse and RuntimeMaxUse in /etc/systemd/journald.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.2",
+                    title="Ensure journal size limits are configured",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="Journal size limits are configured"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.2.2",
+                title="Ensure journal size limits are configured",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking journal size limits: {str(e)}"
+            ))
+
+    def check_journal_forward_to_syslog(self):
+        """10.2.3 - Ensure journal forwards to syslog"""
+        try:
+            journald_conf = self.read_file('/etc/systemd/journald.conf')
+
+            if not journald_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.3",
+                    title="Ensure journal forwards to syslog",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="journald configuration not found"
+                ))
+                return
+
+            # Check ForwardToSyslog setting
+            if 'ForwardToSyslog=yes' in journald_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.3",
+                    title="Ensure journal forwards to syslog",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Journal forwarding to syslog is enabled"
+                ))
+            elif 'ForwardToSyslog=no' in journald_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.3",
+                    title="Ensure journal forwards to syslog",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Journal forwarding to syslog is explicitly disabled",
+                    remediation="Set ForwardToSyslog=yes in /etc/systemd/journald.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.2.3",
+                    title="Ensure journal forwards to syslog",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Journal forwarding to syslog not explicitly configured",
+                    remediation="Set ForwardToSyslog=yes in /etc/systemd/journald.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.2.3",
+                title="Ensure journal forwards to syslog",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking journal forwarding: {str(e)}"
+            ))
+
+    def check_remote_log_host(self):
+        """10.3.1 - Check if remote log host is configured"""
+        try:
+            rsyslog_conf = self.read_file('/etc/rsyslog.conf')
+            rsyslog_d_exists = self.file_exists('/etc/rsyslog.d')
+
+            remote_configured = False
+            config_details = []
+
+            # Check main rsyslog.conf
+            if rsyslog_conf:
+                # Check for remote forwarding patterns
+                if re.search(r'^\s*\*\.\*\s+@@?[a-zA-Z0-9.-]+', rsyslog_conf, re.MULTILINE):
+                    remote_configured = True
+                    config_details.append("Remote logging configured in /etc/rsyslog.conf")
+
+            # Check rsyslog.d directory
+            if rsyslog_d_exists:
+                returncode, stdout, _ = self.run_command(['grep', '-r', '@@', '/etc/rsyslog.d/', '--include=*.conf'])
+
+                if returncode == 0:
+                    remote_configured = True
+                    config_details.append("Remote logging configured in /etc/rsyslog.d/")
+
+            if remote_configured:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.3.1",
+                    title="Check if remote log host is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Remote log forwarding is configured",
+                    details="\n".join(config_details)
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.3.1",
+                    title="Check if remote log host is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Remote log forwarding not detected",
+                    details="Logs are only stored locally",
+                    remediation="Configure remote log forwarding in /etc/rsyslog.conf or /etc/rsyslog.d/"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.3.1",
+                title="Check if remote log host is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking remote log configuration: {str(e)}"
+            ))
+
+    def check_logrotate_configured(self):
+        """10.4.1 - Ensure logrotate is properly configured"""
+        try:
+            # Check if logrotate is installed
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'logrotate'])
+
+            if returncode != 0 or 'ii' not in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.1",
+                    title="Ensure logrotate is installed and configured",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="logrotate is not installed",
+                    remediation="apt-get install logrotate"
+                ))
+                return
+
+            # Check logrotate.conf
+            logrotate_conf = self.read_file('/etc/logrotate.conf')
+
+            if not logrotate_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.1",
+                    title="Ensure logrotate is installed and configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="logrotate.conf not found",
+                    remediation="Configure /etc/logrotate.conf"
+                ))
+                return
+
+            issues = []
+
+            # Check for rotation frequency
+            if 'weekly' not in logrotate_conf and 'daily' not in logrotate_conf:
+                issues.append("Rotation frequency not configured")
+
+            # Check for retention policy
+            if 'rotate' not in logrotate_conf:
+                issues.append("Log retention not configured")
+
+            # Check for compression
+            if 'compress' not in logrotate_conf:
+                issues.append("Log compression not enabled")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.1",
+                    title="Ensure logrotate is installed and configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="logrotate configuration incomplete",
+                    details="\n".join(issues),
+                    remediation="Review and complete /etc/logrotate.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.1",
+                    title="Ensure logrotate is installed and configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="logrotate is properly configured"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.4.1",
+                title="Ensure logrotate is installed and configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking logrotate: {str(e)}"
+            ))
+
+    def check_log_file_permissions(self):
+        """10.4.2 - Ensure log files have appropriate permissions"""
+        try:
+            log_dirs = ['/var/log']
+            issues = []
+
+            for log_dir in log_dirs:
+                if not self.file_exists(log_dir):
+                    continue
+
+                # Check log directory permissions
+                stat_info = self.get_file_stat(log_dir)
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+
+                    # Log directory should not be world-writable
+                    if mode & 0o002:
+                        issues.append(f"{log_dir} is world-writable: {oct(mode)}")
+
+            # Check specific sensitive log files
+            sensitive_logs = [
+                '/var/log/auth.log',
+                '/var/log/syslog',
+                '/var/log/kern.log'
+            ]
+
+            for log_file in sensitive_logs:
+                if not self.file_exists(log_file):
+                    continue
+
+                stat_info = self.get_file_stat(log_file)
+                if stat_info:
+                    mode = stat.S_IMODE(stat_info.st_mode)
+
+                    # Sensitive logs should be 640 or more restrictive
+                    if mode & 0o027:
+                        issues.append(f"{log_file} has overly permissive permissions: {oct(mode)}")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.2",
+                    title="Ensure log files have appropriate permissions",
+                    status=Status.FAIL,
+                    severity=Severity.MEDIUM,
+                    message="Log files/directories have insecure permissions",
+                    details="\n".join(issues[:5]),
+                    remediation="chmod 640 for sensitive logs, chmod 755 for /var/log"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.2",
+                    title="Ensure log files have appropriate permissions",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Log file permissions are secure"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.4.2",
+                title="Ensure log files have appropriate permissions",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking log file permissions: {str(e)}"
+            ))
+
+    def check_auditd_log_rotation(self):
+        """10.4.3 - Ensure auditd log rotation is configured"""
+        try:
+            auditd_conf = self.read_file('/etc/audit/auditd.conf')
+
+            if not auditd_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.3",
+                    title="Ensure auditd log rotation is configured",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="auditd configuration not found"
+                ))
+                return
+
+            issues = []
+
+            # Check max_log_file_action
+            if 'max_log_file_action' not in auditd_conf.lower():
+                issues.append("max_log_file_action not configured")
+            elif 'max_log_file_action = keep_logs' in auditd_conf.lower():
+                issues.append("max_log_file_action=keep_logs will fill disk (should be ROTATE)")
+
+            # Check num_logs
+            num_logs_match = re.search(r'num_logs\s*=\s*(\d+)', auditd_conf, re.IGNORECASE)
+            if num_logs_match:
+                num_logs = int(num_logs_match.group(1))
+                if num_logs < 5:
+                    issues.append(f"num_logs={num_logs} is too low (recommend at least 5)")
+            else:
+                issues.append("num_logs not configured")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.3",
+                    title="Ensure auditd log rotation is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="auditd log rotation has issues",
+                    details="\n".join(issues),
+                    remediation="Configure max_log_file_action=ROTATE and num_logs>=5 in /etc/audit/auditd.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="10.4.3",
+                    title="Ensure auditd log rotation is configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="auditd log rotation is properly configured"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="10.4.3",
+                title="Ensure auditd log rotation is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking auditd log rotation: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all extended log monitoring checks"""
+        # Syslog-ng checks (10.1.x)
+        syslog_ng_installed = self.check_syslog_ng_installed()
+        if syslog_ng_installed:
+            self.check_syslog_ng_config()
+
+        # Extended journal checks (10.2.x)
+        self.check_journal_persistence()
+        self.check_journal_max_size()
+        self.check_journal_forward_to_syslog()
+
+        # Remote logging (10.3.x)
+        self.check_remote_log_host()
+
+        # Log rotation and archiving (10.4.x)
+        self.check_logrotate_configured()
+        self.check_log_file_permissions()
+        self.check_auditd_log_rotation()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -13693,6 +14201,10 @@ class DebianCISAudit:
         print("[*] Running Crypto and TLS Security Checks...")
         crypto_auditor = CryptoSecurityAuditor(self.reporter)
         crypto_auditor.run_all_checks()
+
+        print("[*] Running Extended Log Monitoring Checks...")
+        log_monitoring_auditor = ExtendedLogMonitoringAuditor(self.reporter)
+        log_monitoring_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)
