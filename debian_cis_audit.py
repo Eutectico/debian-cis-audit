@@ -14081,6 +14081,536 @@ class ExtendedLogMonitoringAuditor(BaseAuditor):
         self.check_auditd_log_rotation()
 
 
+class HardwareAPTSecurityAuditor(BaseAuditor):
+    """Hardware Security and APT Configuration Checks (11.x)"""
+
+    def check_uefi_secure_boot(self):
+        """11.1.1 - Check if UEFI Secure Boot is enabled"""
+        try:
+            # Check if system is UEFI
+            if not self.file_exists('/sys/firmware/efi'):
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.1",
+                    title="Check if UEFI Secure Boot is enabled",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="System is not using UEFI (legacy BIOS)"
+                ))
+                return
+
+            # Check SecureBoot status
+            secureboot_file = '/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c'
+
+            if self.file_exists(secureboot_file):
+                # Try to read SecureBoot status
+                returncode, stdout, _ = self.run_command(['od', '-An', '-t', 'u1', secureboot_file])
+
+                if returncode == 0:
+                    # Last byte indicates SecureBoot status (1 = enabled, 0 = disabled)
+                    if '1' in stdout.split()[-1]:
+                        self.reporter.add_result(AuditResult(
+                            check_id="11.1.1",
+                            title="Check if UEFI Secure Boot is enabled",
+                            status=Status.PASS,
+                            severity=Severity.MEDIUM,
+                            message="UEFI Secure Boot is enabled"
+                        ))
+                    else:
+                        self.reporter.add_result(AuditResult(
+                            check_id="11.1.1",
+                            title="Check if UEFI Secure Boot is enabled",
+                            status=Status.WARNING,
+                            severity=Severity.MEDIUM,
+                            message="UEFI Secure Boot is disabled",
+                            details="Secure Boot provides protection against bootkit malware",
+                            remediation="Enable Secure Boot in UEFI firmware settings"
+                        ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.1.1",
+                        title="Check if UEFI Secure Boot is enabled",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="Cannot determine Secure Boot status"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.1",
+                    title="Check if UEFI Secure Boot is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Secure Boot variables not found"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.1.1",
+                title="Check if UEFI Secure Boot is enabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking Secure Boot: {str(e)}"
+            ))
+
+    def check_tpm_present(self):
+        """11.1.2 - Check if TPM (Trusted Platform Module) is present"""
+        try:
+            # Check for TPM 2.0
+            if self.file_exists('/sys/class/tpm/tpm0'):
+                # Try to get TPM version
+                returncode, stdout, _ = self.run_command(['cat', '/sys/class/tpm/tpm0/tpm_version_major'])
+
+                if returncode == 0:
+                    version = stdout.strip()
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.1.2",
+                        title="Check if TPM is present and enabled",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message=f"TPM {version}.0 is present and enabled"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.1.2",
+                        title="Check if TPM is present and enabled",
+                        status=Status.PASS,
+                        severity=Severity.LOW,
+                        message="TPM device is present"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.2",
+                    title="Check if TPM is present and enabled",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="TPM not detected",
+                    details="TPM provides hardware-based security features",
+                    remediation="Enable TPM in UEFI/BIOS if available"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.1.2",
+                title="Check if TPM is present and enabled",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking TPM: {str(e)}"
+            ))
+
+    def check_cpu_vulnerabilities(self):
+        """11.1.3 - Check for known CPU vulnerabilities"""
+        try:
+            vuln_dir = '/sys/devices/system/cpu/vulnerabilities'
+
+            if not self.file_exists(vuln_dir):
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.3",
+                    title="Check for CPU vulnerabilities",
+                    status=Status.SKIP,
+                    severity=Severity.MEDIUM,
+                    message="CPU vulnerability information not available"
+                ))
+                return
+
+            # List vulnerability files
+            returncode, stdout, _ = self.run_command(['ls', vuln_dir])
+
+            if returncode != 0:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.3",
+                    title="Check for CPU vulnerabilities",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot list CPU vulnerabilities"
+                ))
+                return
+
+            vulnerabilities = []
+            mitigations = []
+
+            for vuln_file in stdout.strip().split('\n'):
+                if not vuln_file:
+                    continue
+
+                vuln_path = f"{vuln_dir}/{vuln_file}"
+                content = self.read_file(vuln_path)
+
+                if content:
+                    status = content.strip()
+
+                    # Check if vulnerable
+                    if 'Vulnerable' in status:
+                        vulnerabilities.append(f"{vuln_file}: {status}")
+                    elif 'Mitigation' in status:
+                        mitigations.append(f"{vuln_file}: Mitigated")
+
+            if vulnerabilities:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.3",
+                    title="Check for CPU vulnerabilities",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message=f"CPU vulnerabilities detected: {len(vulnerabilities)}",
+                    details="\n".join(vulnerabilities[:5]),
+                    remediation="Update CPU microcode and kernel for mitigation"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.1.3",
+                    title="Check for CPU vulnerabilities",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="No unmitigated CPU vulnerabilities detected",
+                    details=f"{len(mitigations)} vulnerabilities mitigated"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.1.3",
+                title="Check for CPU vulnerabilities",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking CPU vulnerabilities: {str(e)}"
+            ))
+
+    def check_apt_https_transport(self):
+        """11.2.1 - Ensure APT uses HTTPS transport"""
+        try:
+            # Check if apt-transport-https is installed
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'apt-transport-https'])
+
+            # In newer systems, HTTPS is built into apt
+            if returncode != 0 or 'ii' not in stdout:
+                # Check if apt has built-in HTTPS support
+                returncode2, stdout2, _ = self.run_command(['apt-config', 'dump'])
+
+                if returncode2 == 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.2.1",
+                        title="Ensure APT HTTPS transport is available",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="APT has HTTPS support (built-in or via package)"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.2.1",
+                        title="Ensure APT HTTPS transport is available",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="Cannot verify APT HTTPS support"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.2.1",
+                    title="Ensure APT HTTPS transport is available",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="apt-transport-https is installed"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.2.1",
+                title="Ensure APT HTTPS transport is available",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking APT HTTPS transport: {str(e)}"
+            ))
+
+    def check_apt_sources_https(self):
+        """11.2.2 - Ensure APT sources use HTTPS"""
+        try:
+            sources_list = self.read_file('/etc/apt/sources.list')
+            sources_d_exists = self.file_exists('/etc/apt/sources.list.d')
+
+            http_sources = []
+            https_sources = []
+
+            # Check main sources.list
+            if sources_list:
+                for line in sources_list.splitlines():
+                    if line.strip().startswith('#') or not line.strip():
+                        continue
+
+                    if 'http://' in line:
+                        http_sources.append(line.strip())
+                    elif 'https://' in line:
+                        https_sources.append(line.strip())
+
+            # Check sources.list.d
+            if sources_d_exists:
+                returncode, stdout, _ = self.run_command(['grep', '-r', '^deb', '/etc/apt/sources.list.d/', '--include=*.list'])
+
+                if returncode == 0:
+                    for line in stdout.splitlines():
+                        if 'http://' in line and 'https://' not in line:
+                            http_sources.append(line.split(':', 1)[1].strip() if ':' in line else line.strip())
+
+            if http_sources:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.2.2",
+                    title="Ensure APT sources use HTTPS",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message=f"HTTP repositories detected: {len(http_sources)}",
+                    details="\n".join(http_sources[:3]),
+                    remediation="Replace http:// with https:// in APT sources"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.2.2",
+                    title="Ensure APT sources use HTTPS",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="All APT sources use HTTPS"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.2.2",
+                title="Ensure APT sources use HTTPS",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking APT sources: {str(e)}"
+            ))
+
+    def check_unattended_upgrades(self):
+        """11.3.1 - Ensure unattended-upgrades is configured"""
+        try:
+            # Check if unattended-upgrades is installed
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'unattended-upgrades'])
+
+            if returncode != 0 or 'ii' not in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.3.1",
+                    title="Ensure unattended-upgrades is installed",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="unattended-upgrades is not installed",
+                    details="Automatic security updates are not configured",
+                    remediation="apt-get install unattended-upgrades && dpkg-reconfigure -plow unattended-upgrades"
+                ))
+                return
+
+            # Check if it's enabled
+            auto_upgrades_conf = self.read_file('/etc/apt/apt.conf.d/20auto-upgrades')
+
+            if auto_upgrades_conf:
+                if 'APT::Periodic::Unattended-Upgrade "1"' in auto_upgrades_conf:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.3.1",
+                        title="Ensure unattended-upgrades is configured",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="Automatic security updates are enabled"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.3.1",
+                        title="Ensure unattended-upgrades is configured",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="unattended-upgrades installed but not enabled",
+                        remediation="Run: dpkg-reconfigure -plow unattended-upgrades"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.3.1",
+                    title="Ensure unattended-upgrades is configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="unattended-upgrades configuration not found",
+                    remediation="Configure /etc/apt/apt.conf.d/20auto-upgrades"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.3.1",
+                title="Ensure unattended-upgrades is configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking unattended-upgrades: {str(e)}"
+            ))
+
+    def check_apt_security_updates(self):
+        """11.3.2 - Ensure security updates are configured"""
+        try:
+            unattended_conf = self.read_file('/etc/apt/apt.conf.d/50unattended-upgrades')
+
+            if not unattended_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.3.2",
+                    title="Ensure security updates are configured",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="Unattended-upgrades configuration not found"
+                ))
+                return
+
+            # Check if security updates are enabled
+            if 'Debian-Security' in unattended_conf or 'security' in unattended_conf.lower():
+                self.reporter.add_result(AuditResult(
+                    check_id="11.3.2",
+                    title="Ensure security updates are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Security updates are configured"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.3.2",
+                    title="Ensure security updates are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Security updates not enabled in unattended-upgrades",
+                    remediation="Enable Debian-Security in /etc/apt/apt.conf.d/50unattended-upgrades"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.3.2",
+                title="Ensure security updates are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking security updates: {str(e)}"
+            ))
+
+    def check_apt_repository_signing(self):
+        """11.4.1 - Ensure APT repository signing is enforced"""
+        try:
+            apt_conf = self.read_file('/etc/apt/apt.conf')
+            apt_conf_d_exists = self.file_exists('/etc/apt/apt.conf.d')
+
+            unsigned_allowed = False
+
+            # Check main apt.conf
+            if apt_conf and 'APT::Get::AllowUnauthenticated' in apt_conf:
+                if 'true' in apt_conf.lower():
+                    unsigned_allowed = True
+
+            # Check apt.conf.d
+            if apt_conf_d_exists:
+                returncode, stdout, _ = self.run_command(['grep', '-r', 'AllowUnauthenticated', '/etc/apt/apt.conf.d/'])
+
+                if returncode == 0 and 'true' in stdout.lower():
+                    unsigned_allowed = True
+
+            if unsigned_allowed:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.4.1",
+                    title="Ensure APT repository signing is enforced",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="Unsigned packages are allowed",
+                    details="AllowUnauthenticated is set to true",
+                    remediation="Remove or set AllowUnauthenticated to false in APT configuration"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.4.1",
+                    title="Ensure APT repository signing is enforced",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="Repository signing is enforced (default behavior)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.4.1",
+                title="Ensure APT repository signing is enforced",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking repository signing: {str(e)}"
+            ))
+
+    def check_package_verification(self):
+        """11.4.2 - Check for packages with missing signatures"""
+        try:
+            # Run apt-key list to check for repository keys
+            returncode, stdout, _ = self.run_command(['apt-key', 'list'], timeout=10)
+
+            if returncode == 0:
+                key_count = stdout.count('pub ')
+
+                if key_count > 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.4.2",
+                        title="Check APT repository keys",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"APT repository keys are configured ({key_count} keys found)"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="11.4.2",
+                        title="Check APT repository keys",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="No APT repository keys found",
+                        remediation="Verify repository configuration and keys"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.4.2",
+                    title="Check APT repository keys",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Cannot verify APT repository keys (apt-key may be deprecated)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.4.2",
+                title="Check APT repository keys",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking package verification: {str(e)}"
+            ))
+
+    def check_debsums_installed(self):
+        """11.4.3 - Ensure debsums is installed for package integrity"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'debsums'])
+
+            if returncode == 0 and 'ii' in stdout:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.4.3",
+                    title="Ensure debsums is installed",
+                    status=Status.PASS,
+                    severity=Severity.LOW,
+                    message="debsums is installed (package integrity verification available)"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="11.4.3",
+                    title="Ensure debsums is installed",
+                    status=Status.WARNING,
+                    severity=Severity.LOW,
+                    message="debsums is not installed",
+                    details="debsums can verify installed package integrity",
+                    remediation="apt-get install debsums"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="11.4.3",
+                title="Ensure debsums is installed",
+                status=Status.ERROR,
+                severity=Severity.LOW,
+                message=f"Error checking debsums: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all hardware and APT security checks"""
+        # Hardware security checks (11.1.x)
+        self.check_uefi_secure_boot()
+        self.check_tpm_present()
+        self.check_cpu_vulnerabilities()
+
+        # APT configuration checks (11.2.x)
+        self.check_apt_https_transport()
+        self.check_apt_sources_https()
+
+        # Update management checks (11.3.x)
+        self.check_unattended_upgrades()
+        self.check_apt_security_updates()
+
+        # Repository trust checks (11.4.x)
+        self.check_apt_repository_signing()
+        self.check_package_verification()
+        self.check_debsums_installed()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -14205,6 +14735,10 @@ class DebianCISAudit:
         print("[*] Running Extended Log Monitoring Checks...")
         log_monitoring_auditor = ExtendedLogMonitoringAuditor(self.reporter)
         log_monitoring_auditor.run_all_checks()
+
+        print("[*] Running Hardware and APT Security Checks...")
+        hardware_apt_auditor = HardwareAPTSecurityAuditor(self.reporter)
+        hardware_apt_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)
