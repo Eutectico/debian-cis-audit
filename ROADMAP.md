@@ -4,9 +4,9 @@
 
 | Metrik | Wert |
 |--------|------|
-| **Version** | v3.5.0 (Phase 6 läuft) |
-| **Implementierte Checks** | 343 / 400+ |
-| **Coverage** | ~86% 🎉 |
+| **Version** | v3.6.0 (Phase 6 läuft) |
+| **Implementierte Checks** | 355 / 400+ |
+| **Coverage** | ~89% 🎉 |
 | **CIS Benchmark** | Debian 12 v1.1.0 (09-26-2024) |
 
 ---
@@ -36,7 +36,7 @@
 ### 🔄 Phase 6: Full CIS Compliance (IN ARBEIT)
 **Ziel:** 400+ Checks (~100%) | v3.0.0+
 
-**Fortschritt:** 38 Checks implementiert
+**Fortschritt:** 50 Checks implementiert
 
 | Priority | Bereich | Checks | Status |
 |----------|---------|--------|--------|
@@ -45,6 +45,7 @@
 | 2 | Additional Audit Rules (6.2.3.22-36) | 15 | ✅ v3.3.0 |
 | 3 | Extended Filesystem Checks (1.1.9-18) | 10 | ✅ v3.4.0 |
 | 5 | Service Security & Network Hardening | 15 | ✅ v3.5.0 |
+| 6 | Container & Virtualization Security (8.x) | 12 | ✅ v3.6.0 |
 
 ---
 
@@ -132,6 +133,27 @@ Nächste Prioritäten für Phase 6:
 ## 📝 Release-Historie
 
 ### Aktuelle Releases (Phase 6 - In Arbeit)
+
+#### v3.6.0 (2025-11-12) - Phase 6 Priority 6 Complete 🎉
+**+12 Checks** | 355 Total | ~89% Coverage
+
+**Neue Checks:**
+- **8.1.x** Docker Security (4 Checks)
+  - 8.1.1: Docker installation detection
+  - 8.1.2: Docker daemon configuration security
+  - 8.1.3: Docker socket permissions
+  - 8.1.4: Docker Content Trust enabled
+- **8.2.x** Podman & Container Namespaces (2 Checks)
+  - 8.2.1: Podman installation detection (rootless containers)
+  - 8.2.2: User namespaces enabled for containers
+- **8.3.x** Virtualization Security (6 Checks)
+  - 8.3.1: libvirt installation detection
+  - 8.3.2: QEMU security options configured
+  - 8.3.3: libvirt SASL authentication
+  - 8.3.4: libvirt TLS encryption
+  - 8.3.5: KVM module configuration
+
+**Phase 6 Priority 6 Complete!** Container and virtualization security with Docker, Podman, and libvirt/KVM checks.
 
 #### v3.5.0 (2025-11-07) - Phase 6 Priority 5 Complete 🎉
 **+15 Checks** | 343 Total | ~86% Coverage

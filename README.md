@@ -7,7 +7,7 @@
 
 Ein umfassendes Python-Audit-Skript zur Überprüfung der Einhaltung der CIS Debian Linux 12 Benchmark v1.1.0.
 
-**Aktueller Status:** 343 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~86% Coverage)
+**Aktueller Status:** 355 Checks implementiert | 400+ Checks im Benchmark | Phase 6 läuft (~89% Coverage)
 
 > **⚠️ Wichtig:** Dieses Skript erkennt kritische Fehlkonfigurationen in `auditd.conf`, die zu Systemausfällen durch volle Partitionen führen können!
 
@@ -277,12 +277,12 @@ Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für weitere Details.
 
 ## 📋 CIS Benchmark Konformität
 
-**Status:** 343 von 400+ Checks implementiert (~86%) | **Phase 6 läuft 🚀**
+**Status:** 355 von 400+ Checks implementiert (~89%) | **Phase 6 läuft 🚀**
 
 Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchmark-Abschnitten:
 
 <details>
-<summary>✅ Implementierte Checks (343) - Klicken zum Anzeigen</summary>
+<summary>✅ Implementierte Checks (355) - Klicken zum Anzeigen</summary>
 
 - **1.1.1.x** - Filesystem Kernel Modules (9 Checks)
 - **1.1.2.x** - Filesystem Partitions (26 Checks)
@@ -323,21 +323,28 @@ Dieses Skript implementiert aktuell ausgewählte Checks aus folgenden CIS Benchm
 - **6.3.x** - Integrity Checking (3 Checks)
 - **7.1.x** - System File Permissions (12 Checks)
 - **7.2.x** - Local User and Group Settings (12 Checks) ✨ ERWEITERT v3.5.0
+- **8.1.x** - Docker Security (4 Checks) 🆕 v3.6.0
+- **8.2.x** - Podman & Container Namespaces (2 Checks) 🆕 v3.6.0
+- **8.3.x** - Virtualization Security (libvirt/KVM) (6 Checks) 🆕 v3.6.0
 - **Weitere** - Legacy Checks (1 Check)
 
 </details>
 
 > 📝 **Hinweis:** Dies sind die aktuell implementierten Checks. Siehe [ROADMAP.md](ROADMAP.md) für die vollständige Liste aller geplanten 400+ Checks aus dem CIS Benchmark.
 >
-> 🚀 **Phase 6 läuft - v3.5.0!** 343 Checks implementiert - **86% Coverage erreicht!**
+> 🚀 **Phase 6 läuft - v3.6.0!** 355 Checks implementiert - **89% Coverage erreicht!**
+> - **Neu in v3.6.0:** 12 Container & Virtualization Security Checks (8.x)
+>   - Docker security (daemon config, socket permissions, content trust)
+>   - Podman rootless containers and user namespaces
+>   - libvirt/KVM virtualization security (QEMU, SASL, TLS, KVM module)
 > - **Neu in v3.5.0:** 15 Service Security & Network Hardening Checks (2.1.23-24, 3.5.x, 5.7.x, 7.2.11-12)
 >   - Service security (Postfix, unnecessary packages)
 >   - Network hardening (core dumps, packet redirects, TCP SYN cookies, IPv6 RA)
 >   - Network protocols (uncommon protocols, wireless interfaces)
 >   - User account security (system accounts, default accounts, inactive passwords, shell timeout)
 >   - Path and home directory integrity
-> - **Phase 6 Priorität 5 abgeschlossen!** Service Security & Network Hardening implementiert
-> - **Nächster Schritt:** Container & Virtualization Security Checks
+> - **Phase 6 Priorität 6 abgeschlossen!** Container & Virtualization Security implementiert
+> - **Nächster Schritt:** Crypto Policies & Extended Log Monitoring
 
 ## 📊 Severity Levels
 

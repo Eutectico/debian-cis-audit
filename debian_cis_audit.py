@@ -12408,6 +12408,540 @@ class ServiceSecurityAuditor(BaseAuditor):
         self.check_all_users_home_directory_exists()
 
 
+class ContainerVirtualizationAuditor(BaseAuditor):
+    """Container and Virtualization Security Checks (8.x)"""
+
+    def check_docker_installed(self):
+        """8.1.1 - Check if Docker is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'docker.io'])
+            docker_installed = returncode == 0 and 'ii' in stdout
+
+            returncode2, stdout2, _ = self.run_command(['dpkg', '-l', 'docker-ce'])
+            docker_ce_installed = returncode2 == 0 and 'ii' in stdout2
+
+            if docker_installed or docker_ce_installed:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.1",
+                    title="Check if Docker is installed",
+                    status=Status.INFO,
+                    severity=Severity.INFO,
+                    message="Docker is installed - additional container security checks will run"
+                ))
+                return True
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.1",
+                    title="Check if Docker is installed",
+                    status=Status.SKIP,
+                    severity=Severity.INFO,
+                    message="Docker is not installed - container security checks skipped"
+                ))
+                return False
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.1.1",
+                title="Check if Docker is installed",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking Docker installation: {str(e)}"
+            ))
+            return False
+
+    def check_docker_daemon_config(self):
+        """8.1.2 - Ensure Docker daemon is configured securely"""
+        try:
+            daemon_config = self.read_file('/etc/docker/daemon.json')
+            if not daemon_config:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.2",
+                    title="Ensure Docker daemon configuration exists",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Docker daemon.json configuration not found",
+                    remediation="Create /etc/docker/daemon.json with secure settings"
+                ))
+                return
+
+            try:
+                import json
+                config = json.loads(daemon_config)
+
+                issues = []
+                # Check for insecure registry
+                if 'insecure-registries' in config and config['insecure-registries']:
+                    issues.append("Insecure registries are configured")
+
+                # Check for live-restore
+                if config.get('live-restore') != True:
+                    issues.append("live-restore is not enabled")
+
+                # Check for userland-proxy
+                if config.get('userland-proxy') != False:
+                    issues.append("userland-proxy is not disabled (performance impact)")
+
+                if issues:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.1.2",
+                        title="Ensure Docker daemon is configured securely",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="Docker daemon configuration has potential issues",
+                        details="\n".join(issues),
+                        remediation="Review and update /etc/docker/daemon.json"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.1.2",
+                        title="Ensure Docker daemon is configured securely",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message="Docker daemon configuration looks secure"
+                    ))
+            except json.JSONDecodeError:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.2",
+                    title="Ensure Docker daemon is configured securely",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Docker daemon.json is not valid JSON"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.1.2",
+                title="Ensure Docker daemon is configured securely",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking Docker daemon configuration: {str(e)}"
+            ))
+
+    def check_docker_socket_permissions(self):
+        """8.1.3 - Ensure Docker socket has correct permissions"""
+        try:
+            socket_path = '/var/run/docker.sock'
+            if not self.file_exists(socket_path):
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.3",
+                    title="Ensure Docker socket permissions are configured",
+                    status=Status.SKIP,
+                    severity=Severity.HIGH,
+                    message="Docker socket not found (Docker may not be running)"
+                ))
+                return
+
+            stat_info = self.get_file_stat(socket_path)
+            if not stat_info:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.3",
+                    title="Ensure Docker socket permissions are configured",
+                    status=Status.ERROR,
+                    severity=Severity.HIGH,
+                    message="Cannot stat Docker socket"
+                ))
+                return
+
+            mode = stat.S_IMODE(stat_info.st_mode)
+            # Socket should be 660 or more restrictive
+            if mode & 0o006:  # Check if world has any permissions
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.3",
+                    title="Ensure Docker socket permissions are configured",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message=f"Docker socket has insecure permissions: {oct(mode)}",
+                    remediation="chmod 660 /var/run/docker.sock"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.3",
+                    title="Ensure Docker socket permissions are configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message=f"Docker socket permissions are secure: {oct(mode)}"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.1.3",
+                title="Ensure Docker socket permissions are configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking Docker socket permissions: {str(e)}"
+            ))
+
+    def check_docker_content_trust(self):
+        """8.1.4 - Ensure Docker Content Trust is enabled"""
+        try:
+            # Check DOCKER_CONTENT_TRUST environment variable
+            returncode, stdout, _ = self.run_command(['printenv', 'DOCKER_CONTENT_TRUST'])
+
+            if returncode == 0 and stdout.strip() == '1':
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.4",
+                    title="Ensure Docker Content Trust is enabled",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="Docker Content Trust is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.1.4",
+                    title="Ensure Docker Content Trust is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="Docker Content Trust is not enabled",
+                    details="Content trust ensures image signatures are verified",
+                    remediation="Export DOCKER_CONTENT_TRUST=1 in system profile"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.1.4",
+                title="Ensure Docker Content Trust is enabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking Docker Content Trust: {str(e)}"
+            ))
+
+    def check_podman_installed(self):
+        """8.2.1 - Check if Podman is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'podman'])
+            podman_installed = returncode == 0 and 'ii' in stdout
+
+            if podman_installed:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.2.1",
+                    title="Check if Podman is installed",
+                    status=Status.INFO,
+                    severity=Severity.INFO,
+                    message="Podman is installed - rootless container runtime detected"
+                ))
+                return True
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.2.1",
+                    title="Check if Podman is installed",
+                    status=Status.SKIP,
+                    severity=Severity.INFO,
+                    message="Podman is not installed"
+                ))
+                return False
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.2.1",
+                title="Check if Podman is installed",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking Podman installation: {str(e)}"
+            ))
+            return False
+
+    def check_container_user_namespaces(self):
+        """8.2.2 - Ensure user namespaces are enabled for containers"""
+        try:
+            # Check if user namespaces are enabled in kernel
+            returncode, stdout, _ = self.run_command(['sysctl', 'user.max_user_namespaces'])
+
+            if returncode == 0:
+                value = stdout.strip().split('=')[-1].strip()
+                if int(value) > 0:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.2.2",
+                        title="Ensure user namespaces are enabled",
+                        status=Status.PASS,
+                        severity=Severity.MEDIUM,
+                        message=f"User namespaces are enabled: {value}"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.2.2",
+                        title="Ensure user namespaces are enabled",
+                        status=Status.WARNING,
+                        severity=Severity.MEDIUM,
+                        message="User namespaces are disabled",
+                        remediation="Set user.max_user_namespaces in sysctl.conf"
+                    ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.2.2",
+                    title="Ensure user namespaces are enabled",
+                    status=Status.ERROR,
+                    severity=Severity.MEDIUM,
+                    message="Cannot check user namespace configuration"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.2.2",
+                title="Ensure user namespaces are enabled",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking user namespaces: {str(e)}"
+            ))
+
+    def check_libvirt_installed(self):
+        """8.3.1 - Check if libvirt is installed"""
+        try:
+            returncode, stdout, _ = self.run_command(['dpkg', '-l', 'libvirt-daemon'])
+            libvirt_installed = returncode == 0 and 'ii' in stdout
+
+            if libvirt_installed:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.1",
+                    title="Check if libvirt is installed",
+                    status=Status.INFO,
+                    severity=Severity.INFO,
+                    message="libvirt is installed - virtualization checks will run"
+                ))
+                return True
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.1",
+                    title="Check if libvirt is installed",
+                    status=Status.SKIP,
+                    severity=Severity.INFO,
+                    message="libvirt is not installed - virtualization checks skipped"
+                ))
+                return False
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.3.1",
+                title="Check if libvirt is installed",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking libvirt installation: {str(e)}"
+            ))
+            return False
+
+    def check_qemu_security_options(self):
+        """8.3.2 - Ensure QEMU security options are configured"""
+        try:
+            qemu_conf = self.read_file('/etc/libvirt/qemu.conf')
+            if not qemu_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.2",
+                    title="Ensure QEMU security options are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="QEMU configuration not found",
+                    remediation="Configure /etc/libvirt/qemu.conf with security options"
+                ))
+                return
+
+            issues = []
+
+            # Check for security_driver (should use AppArmor or SELinux)
+            if 'security_driver = "none"' in qemu_conf or 'security_driver="none"' in qemu_conf:
+                issues.append("Security driver is disabled")
+
+            # Check for user/group (should not run as root)
+            if not re.search(r'^\s*user\s*=\s*"libvirt-qemu"', qemu_conf, re.MULTILINE):
+                issues.append("QEMU is not configured to run as non-root user")
+
+            if not re.search(r'^\s*group\s*=\s*"libvirt-qemu"', qemu_conf, re.MULTILINE):
+                issues.append("QEMU group is not configured")
+
+            if issues:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.2",
+                    title="Ensure QEMU security options are configured",
+                    status=Status.WARNING,
+                    severity=Severity.MEDIUM,
+                    message="QEMU security configuration has issues",
+                    details="\n".join(issues),
+                    remediation="Update /etc/libvirt/qemu.conf with secure settings"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.2",
+                    title="Ensure QEMU security options are configured",
+                    status=Status.PASS,
+                    severity=Severity.MEDIUM,
+                    message="QEMU security options are properly configured"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.3.2",
+                title="Ensure QEMU security options are configured",
+                status=Status.ERROR,
+                severity=Severity.MEDIUM,
+                message=f"Error checking QEMU security options: {str(e)}"
+            ))
+
+    def check_libvirt_sasl_authentication(self):
+        """8.3.3 - Ensure libvirt SASL authentication is configured"""
+        try:
+            libvirtd_conf = self.read_file('/etc/libvirt/libvirtd.conf')
+            if not libvirtd_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.3",
+                    title="Ensure libvirt SASL authentication is configured",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="libvirtd configuration not found",
+                    remediation="Configure /etc/libvirt/libvirtd.conf with SASL authentication"
+                ))
+                return
+
+            # Check for SASL authentication
+            auth_tcp_enabled = re.search(r'^\s*auth_tcp\s*=\s*"sasl"', libvirtd_conf, re.MULTILINE)
+            auth_tls_enabled = re.search(r'^\s*auth_tls\s*=\s*"sasl"', libvirtd_conf, re.MULTILINE)
+
+            if auth_tcp_enabled or auth_tls_enabled:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.3",
+                    title="Ensure libvirt SASL authentication is configured",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="libvirt SASL authentication is enabled"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.3",
+                    title="Ensure libvirt SASL authentication is configured",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="libvirt SASL authentication is not configured",
+                    details="Remote connections may be unauthenticated",
+                    remediation="Set auth_tcp and auth_tls to 'sasl' in /etc/libvirt/libvirtd.conf"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.3.3",
+                title="Ensure libvirt SASL authentication is configured",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking libvirt SASL configuration: {str(e)}"
+            ))
+
+    def check_libvirt_tls_encryption(self):
+        """8.3.4 - Ensure libvirt TLS encryption is enabled"""
+        try:
+            libvirtd_conf = self.read_file('/etc/libvirt/libvirtd.conf')
+            if not libvirtd_conf:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.4",
+                    title="Ensure libvirt TLS encryption is enabled",
+                    status=Status.WARNING,
+                    severity=Severity.HIGH,
+                    message="libvirtd configuration not found"
+                ))
+                return
+
+            # Check if TLS is enabled
+            listen_tls = re.search(r'^\s*listen_tls\s*=\s*1', libvirtd_conf, re.MULTILINE)
+            listen_tcp = re.search(r'^\s*listen_tcp\s*=\s*1', libvirtd_conf, re.MULTILINE)
+
+            if listen_tls:
+                # Check for TLS certificates
+                cert_issues = []
+                if not self.file_exists('/etc/pki/libvirt/servercert.pem'):
+                    cert_issues.append("Server certificate not found")
+                if not self.file_exists('/etc/pki/libvirt/private/serverkey.pem'):
+                    cert_issues.append("Server key not found")
+                if not self.file_exists('/etc/pki/CA/cacert.pem'):
+                    cert_issues.append("CA certificate not found")
+
+                if cert_issues:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.3.4",
+                        title="Ensure libvirt TLS encryption is enabled",
+                        status=Status.WARNING,
+                        severity=Severity.HIGH,
+                        message="TLS is enabled but certificates are missing",
+                        details="\n".join(cert_issues),
+                        remediation="Generate TLS certificates for libvirt"
+                    ))
+                else:
+                    self.reporter.add_result(AuditResult(
+                        check_id="8.3.4",
+                        title="Ensure libvirt TLS encryption is enabled",
+                        status=Status.PASS,
+                        severity=Severity.HIGH,
+                        message="libvirt TLS encryption is properly configured"
+                    ))
+            elif listen_tcp:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.4",
+                    title="Ensure libvirt TLS encryption is enabled",
+                    status=Status.FAIL,
+                    severity=Severity.HIGH,
+                    message="libvirt is using unencrypted TCP connections",
+                    remediation="Enable TLS by setting listen_tls=1 in libvirtd.conf"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.4",
+                    title="Ensure libvirt TLS encryption is enabled",
+                    status=Status.PASS,
+                    severity=Severity.HIGH,
+                    message="libvirt is not listening on network (local only)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.3.4",
+                title="Ensure libvirt TLS encryption is enabled",
+                status=Status.ERROR,
+                severity=Severity.HIGH,
+                message=f"Error checking libvirt TLS configuration: {str(e)}"
+            ))
+
+    def check_kvm_module_loaded(self):
+        """8.3.5 - Ensure KVM module is properly configured"""
+        try:
+            # Check if KVM modules are loaded
+            returncode, stdout, _ = self.run_command(['lsmod'])
+
+            kvm_intel = 'kvm_intel' in stdout
+            kvm_amd = 'kvm_amd' in stdout
+
+            if kvm_intel or kvm_amd:
+                module = 'kvm_intel' if kvm_intel else 'kvm_amd'
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.5",
+                    title="Ensure KVM module is loaded",
+                    status=Status.INFO,
+                    severity=Severity.INFO,
+                    message=f"KVM module is loaded: {module}"
+                ))
+            else:
+                self.reporter.add_result(AuditResult(
+                    check_id="8.3.5",
+                    title="Ensure KVM module is loaded",
+                    status=Status.INFO,
+                    severity=Severity.INFO,
+                    message="KVM module is not loaded (virtualization may not be in use)"
+                ))
+        except Exception as e:
+            self.reporter.add_result(AuditResult(
+                check_id="8.3.5",
+                title="Ensure KVM module is loaded",
+                status=Status.ERROR,
+                severity=Severity.INFO,
+                message=f"Error checking KVM module: {str(e)}"
+            ))
+
+    def run_all_checks(self):
+        """Run all container and virtualization security checks"""
+        # Docker checks (8.1.x)
+        docker_installed = self.check_docker_installed()
+        if docker_installed:
+            self.check_docker_daemon_config()
+            self.check_docker_socket_permissions()
+            self.check_docker_content_trust()
+
+        # Podman checks (8.2.x)
+        podman_installed = self.check_podman_installed()
+        if docker_installed or podman_installed:
+            self.check_container_user_namespaces()
+
+        # Virtualization checks (8.3.x)
+        libvirt_installed = self.check_libvirt_installed()
+        if libvirt_installed:
+            self.check_qemu_security_options()
+            self.check_libvirt_sasl_authentication()
+            self.check_libvirt_tls_encryption()
+            self.check_kvm_module_loaded()
+
+
 class DebianCISAudit:
     """Main audit orchestrator"""
 
@@ -12520,6 +13054,10 @@ class DebianCISAudit:
         print("[*] Running Service Security Checks...")
         service_security_auditor = ServiceSecurityAuditor(self.reporter)
         service_security_auditor.run_all_checks()
+
+        print("[*] Running Container and Virtualization Security Checks...")
+        container_virt_auditor = ContainerVirtualizationAuditor(self.reporter)
+        container_virt_auditor.run_all_checks()
 
         print("\n[*] Audit complete!")
         print("=" * 80)
